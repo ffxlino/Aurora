@@ -13,6 +13,9 @@ npm-debug.log*
 Main.zip
 *.zip
 
+# Посторонние bat-файлы
+*.bat
+
 # Временные файлы electron-builder
 dist/__appImage-x64/
 dist/__snap-x64/
