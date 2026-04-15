@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:;">
+  <title>CraftSync</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- TITLE BAR -->
+<div class="titlebar">
+  <div class="titlebar-left">
+    <div class="logo-icon">⚡</div>
+    <span class="titlebar-title">CraftSync</span>
+  </div>
+  <div class="titlebar-drag"></div>
+  <div class="titlebar-controls">
+    <button class="tb-btn" id="btn-minimize" title="Свернуть">─</button>
+    <button class="tb-btn" id="btn-maximize" title="Развернуть">□</button>
+    <button class="tb-btn tb-close" id="btn-close" title="Закрыть">✕</button>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Главная</div>
+        <div class="nav-item active" data-page="home">
+          <span class="nav-icon">🏠</span> Обзор
+        </div>
+        <div class="nav-item" data-page="installed">
+          <span class="nav-icon">📦</span> Мои сборки
+          <span class="nav-badge" id="badge-installed">0</span>
+        </div>
+        <div class="nav-item" data-page="catalog">
+          <span class="nav-icon">🔍</span> Каталог
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Управление</div>
+        <div class="nav-item" data-page="publish">
+          <span class="nav-icon">📤</span> Публикация
+        </div>
+        <div class="nav-item" data-page="settings">
+          <span class="nav-icon">⚙️</span> Настройки
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-user" id="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">Загрузка...</div>
+        <div class="user-status" id="user-status">● Оффлайн</div>
+      </div>
+      <button class="btn-user-menu" id="btn-user-menu" title="Сменить аккаунт">⋯</button>
+    </div>
+
+    <!-- Popup меню пользователя -->
+    <div class="user-popup" id="user-popup" style="display:none">
+      <!-- Сохранённые аккаунты -->
+      <div class="user-popup-section" id="popup-accounts-section" style="display:none">
+        <div class="user-popup-label">Аккаунты</div>
+        <div id="popup-accounts-list"></div>
+        <div class="user-popup-divider"></div>
+      </div>
+      <div class="user-popup-item" id="popup-ms-login">🔑 Войти через Microsoft</div>
+      <div class="user-popup-item" id="popup-offline">👤 Офлайн режим</div>
+      <div class="user-popup-divider"></div>
+      <div class="user-popup-item danger" id="popup-logout">🚪 Выйти из аккаунта</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">Обзор</div>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Поиск сборок...">
+      </div>
+      <button class="btn-refresh" id="btn-refresh" title="Обновить список">↻</button>
+    </div>
+
+    <!-- PAGES -->
+    <div class="content" id="content">
+
+      <!-- ══ HOME PAGE ══════════════════════════════════════════════════════ -->
+      <div id="page-home" class="page active">
+
+        <!-- Demo notice -->
+        <div class="notice" id="demo-notice" style="display:none">
+          <span>⚠️</span>
+          <span>Работает в демо-режиме. Укажите URL вашего манифеста в <b>Настройках</b> чтобы подключить GitHub.</span>
+        </div>
+
+        <!-- Launcher update banner -->
+        <div class="launcher-update-banner" id="launcher-update-banner" style="display:none">
+          <span class="update-banner-icon">🚀</span>
+          <span class="update-banner-text" id="launcher-update-text">Доступно обновление лаунчера</span>
+          <button class="update-banner-btn" id="launcher-update-btn">Скачать</button>
+          <button class="update-banner-dismiss" id="launcher-update-dismiss">✕</button>
+        </div>
+
+        <!-- Featured -->
+        <div class="featured" id="featured-banner" style="display:none">
+          <div class="featured-content">
+            <div class="featured-badge">⭐ Рекомендуемая сборка</div>
+            <div class="featured-title" id="feat-title">—</div>
+            <div class="featured-desc" id="feat-desc">—</div>
+            <div class="featured-meta">
+              <div class="meta-item"><div class="meta-label">Версия MC</div><div class="meta-value" id="feat-mc">—</div></div>
+              <div class="meta-item"><div class="meta-label">Загрузчик</div><div class="meta-value" id="feat-loader">—</div></div>
+              <div class="meta-item"><div class="meta-label">Модов</div><div class="meta-value" id="feat-mods">—</div></div>
+              <div class="meta-item"><div class="meta-label">Размер</div><div class="meta-value" id="feat-size">—</div></div>
+            </div>
+            <button class="btn-play" id="feat-play-btn">▶ Играть</button>
+          </div>
+          <div class="featured-img" id="feat-icon">🏔️</div>
+        </div>
+
+        <!-- Update banner (скрыт, показывается если есть обновления) -->
+        <div class="update-banner" id="update-banner" style="display:none">
+          <span class="update-banner-icon">🔔</span>
+          <span class="update-banner-text" id="update-banner-text">Доступны обновления для сборок</span>
+          <button class="update-banner-btn" id="update-banner-btn">Посмотреть</button>
+        </div>
+
+        <!-- News section -->
+        <div class="news-section" id="news-section" style="display:none">
+          <div class="section-header">
+            <div class="section-title">📰 Новости сервера</div>
+          </div>
+          <div class="news-list" id="news-list">
+            <div class="news-loading">Загрузка новостей...</div>
+          </div>
+        </div>
+
+        <!-- My modpacks section -->
+        <div class="section-header">
+          <div class="section-title">📦 Мои сборки <span class="section-count" id="installed-count-label"></span></div>
+        </div>
+        <div class="modpack-grid" id="installed-grid">
+          <div class="empty-state">Загрузка...</div>
+        </div>
+
+        <!-- Available section -->
+        <div class="section-header" style="margin-top: 8px">
+          <div class="section-title">🌐 Доступные сборки</div>
+        </div>
+        <div class="modpack-grid" id="available-grid">
+          <div class="empty-state">Загрузка...</div>
+        </div>
+      </div>
+
+      <!-- ══ INSTALLED PAGE ════════════════════════════════════════════════ -->
+      <div id="page-installed" class="page">
+        <div class="inst-header">
+          <div class="inst-title-row">
+            <span class="inst-title">📦 Мои сборки</span>
+            <span class="inst-count" id="inst-count-label"></span>
+          </div>
+          <div class="inst-sort-row">
+            <span class="inst-sort-label">Сортировка:</span>
+            <button class="inst-sort-btn active" data-sort="name">По названию</button>
+            <button class="inst-sort-btn" data-sort="date">По дате</button>
+            <button class="inst-sort-btn" data-sort="played">По времени игры</button>
+          </div>
+        </div>
+        <div class="inst-grid" id="inst-grid">
+          <div class="empty-state">Загрузка...</div>
+        </div>
+      </div>
+
+      <!-- ══ CATALOG PAGE ══════════════════════════════════════════════════ -->
+      <div id="page-catalog" class="page">
+        <div class="cat-header">
+          <div class="cat-title-row">
+            <span class="cat-title">🔍 Каталог сборок</span>
+            <span class="cat-count" id="cat-count-label"></span>
+          </div>
+          <div class="cat-filter-row">
+            <button class="cat-filter-btn active" data-filter="all">Все</button>
+            <button class="cat-filter-btn" data-filter="available">Не установлены</button>
+            <button class="cat-filter-btn" data-filter="installed">Установленные</button>
+          </div>
+        </div>
+        <div class="modpack-grid" id="cat-grid">
+          <div class="empty-state">Загрузка...</div>
+        </div>
+      </div>
+
+      <!-- ══ PUBLISH PAGE ═══════════════════════════════════════════════════ -->
+      <div id="page-publish" class="page">
+
+        <div class="pub-layout">
+
+          <!-- ЛЕВАЯ КОЛОНКА: форма -->
+          <div class="pub-form-col">
+
+            <!-- GitHub токен -->
+            <div class="settings-card">
+              <div class="settings-card-title">🔑 GitHub Token
+                <span class="token-status" id="token-status"></span>
+              </div>
+              <div class="form-group">
+                <label>Personal Access Token (нужен scope: repo)</label>
+                <div class="input-row">
+                  <input type="password" id="pub-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                  <button class="btn-browse" id="btn-check-token">Проверить</button>
+                </div>
+                <div class="form-hint">
+                  GitHub → Settings → Developer settings → Personal access tokens → Generate new token (Classic) → выбери <b>repo</b>
+                </div>
+              </div>
+            </div>
+
+            <!-- Метаданные сборки -->
+            <div class="settings-card">
+              <div class="settings-card-title">📦 Данные сборки</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>ID сборки (латиница, без пробелов)</label>
+                  <input type="text" id="pub-id" placeholder="my-modpack">
+                </div>
+                <div class="form-group">
+                  <label>Версия сборки</label>
+                  <input type="text" id="pub-version" placeholder="1.0.0">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Название сборки</label>
+                <input type="text" id="pub-name" placeholder="Моя Сборка">
+              </div>
+              <div class="form-group">
+                <label>Описание</label>
+                <input type="text" id="pub-desc" placeholder="Краткое описание для карточки">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Версия Minecraft</label>
+                  <input type="text" id="pub-mc" placeholder="1.20.1">
+                </div>
+                <div class="form-group">
+                  <label>Загрузчик</label>
+                  <select id="pub-loader" class="form-select">
+                    <option value="forge">Forge</option>
+                    <option value="fabric">Fabric</option>
+                    <option value="neoforge">NeoForge</option>
+                    <option value="quilt">Quilt</option>
+                    <option value="vanilla">Vanilla</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Версия загрузчика</label>
+                  <input type="text" id="pub-loader-ver" placeholder="47.2.0">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Иконка (emoji)</label>
+                  <input type="text" id="pub-icon" placeholder="🏔️" maxlength="2">
+                </div>
+                <div class="form-group">
+                  <label>Цвет баннера</label>
+                  <select id="pub-color" class="form-select">
+                    <option value="purple">Фиолетовый</option>
+                    <option value="blue">Синий</option>
+                    <option value="pink">Розовый</option>
+                    <option value="teal">Морской</option>
+                    <option value="dark">Тёмный</option>
+                  </select>
+                </div>
+                <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:2px">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" id="pub-featured"> Рекомендуемая
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Архив -->
+            <div class="settings-card">
+              <div class="settings-card-title">📁 Архив с модами (.zip / .rar / .7z)</div>
+              <div class="form-group">
+                <div class="drop-zone" id="drop-zone">
+                  <div class="drop-icon">📦</div>
+                  <div class="drop-text">Перетащи архив сюда или нажми кнопку</div>
+                  <div class="drop-sub" id="drop-filename">Поддерживаются: .zip, .rar, .7z</div>
+                  <button class="btn-browse" id="btn-browse-archive" style="margin-top:12px">📂 Выбрать архив</button>
+                </div>
+              </div>
+
+              <!-- Предпросмотр модов -->
+              <div id="mods-preview" style="display:none">
+                <div class="preview-header">
+                  <span id="preview-count">Найдено модов: 0</span>
+                  <span class="preview-badge">Предпросмотр</span>
+                </div>
+                <div class="mods-list" id="mods-list"></div>
+              </div>
+            </div>
+
+            <!-- Кнопка публикации -->
+            <button class="btn-publish" id="btn-publish" disabled>
+              📤 Опубликовать сборку на GitHub
+            </button>
+
+          </div>
+
+          <!-- ПРАВАЯ КОЛОНКА: лог -->
+          <div class="pub-log-col">
+            <div class="settings-card" style="height:100%">
+              <div class="settings-card-title">📋 Лог публикации</div>
+
+              <div class="pub-progress" id="pub-progress" style="display:none">
+                <div class="pub-progress-label">
+                  <span id="pub-progress-text">Загружаем...</span>
+                  <span id="pub-progress-pct">0%</span>
+                </div>
+                <div class="progress-wrap">
+                  <div class="progress-fill" id="pub-progress-bar" style="width:0%"></div>
+                </div>
+              </div>
+
+              <div class="pub-log" id="pub-log">
+                <div class="log-hint">Лог появится после начала публикации...</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══ SETTINGS PAGE ══════════════════════════════════════════════════ -->
+      <div id="page-settings" class="page">
+        <div class="settings-grid">
+
+          <div class="settings-card">
+            <div class="settings-card-title">👤 Профиль</div>
+            <div class="form-group">
+              <label>Никнейм в игре</label>
+              <input type="text" id="set-username" placeholder="Steve" maxlength="16">
+              <div class="form-hint">Используется в офлайн-режиме</div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-title">🌐 GitHub</div>
+            <div class="form-group">
+              <label>Репозиторий лаунчера (для авто-обновлений)</label>
+              <input type="text" id="set-launcher-repo" placeholder="ffxlino/CraftSync-Launcher">
+              <div class="form-hint">Формат: owner/repo. Оставь пустым чтобы отключить проверку обновлений лаунчера.</div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-title">📁 Папка игры</div>
+            <div class="form-group">
+              <label>Путь к .minecraft</label>
+              <div class="input-row">
+                <input type="text" id="set-minecraft-path" placeholder="C:\Users\...\AppData\Roaming\.minecraft" readonly>
+                <button class="btn-browse" id="btn-browse-mc-path">📂 Обзор</button>
+              </div>
+              <div class="form-hint">Папка .minecraft где установлен Forge/Fabric. Обычно определяется автоматически.</div>
+            </div>
+
+            <div class="form-group">
+              <label>Путь к папке сборок</label>
+              <div class="input-row">
+                <input type="text" id="set-game-path" placeholder="C:\Users\...\AppData\Roaming\.craftsync" readonly>
+                <button class="btn-browse" id="btn-browse-path">📂 Обзор</button>
+              </div>
+              <div class="form-hint">Где CraftSync хранит моды и конфиги сборок.</div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-title">☕ Java & Память</div>
+            <div class="form-group">
+              <label>Минимум RAM (MB)</label>
+              <input type="number" id="set-min-ram" min="512" max="16384" step="512">
+            </div>
+            <div class="form-group">
+              <label>Максимум RAM (MB) — <span id="ram-gb-label">4 GB</span></label>
+              <input type="range" id="set-max-ram" min="1024" max="16384" step="512">
+            </div>
+            <div class="form-group">
+              <label>Путь к Java (оставьте пустым для авто)</label>
+              <div class="input-row">
+                <input type="text" id="set-java-path" placeholder="C:\Program Files\Java\bin\java.exe">
+                <button class="btn-browse" id="btn-browse-java">📂</button>
+              </div>
+              <div class="form-hint">Авто-определение приоритетно ищет JRE из .minecraft</div>
+            </div>
+            <div class="form-group">
+              <label>Дополнительные JVM аргументы</label>
+              <input type="text" id="set-jvm-args" placeholder="-XX:+UseG1GC -Dfml.readTimeout=90">
+              <div class="form-hint">Аргументы добавляются к команде запуска игры. Для опытных пользователей.</div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-title">🖥️ Окно игры</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Ширина</label>
+                <input type="number" id="set-width" min="800" max="3840">
+              </div>
+              <div class="form-group">
+                <label>Высота</label>
+                <input type="number" id="set-height" min="600" max="2160">
+              </div>
+            </div>
+            <div class="form-group checkbox-group">
+              <label><input type="checkbox" id="set-fullscreen"> Полный экран</label>
+            </div>
+            <div class="form-group checkbox-group">
+              <label><input type="checkbox" id="set-close-on-launch"> Закрывать лаунчер при запуске игры</label>
+            </div>
+          </div>
+
+          <div class="settings-save-row">
+            <button class="btn-save" id="btn-save-settings">💾 Сохранить настройки</button>
+            <span class="save-status" id="save-status"></span>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-title">🗂 Кэш и данные</div>
+            <div class="form-group">
+              <label>Кэш installer-файлов</label>
+              <div class="input-row">
+                <span class="form-hint" style="margin:0;flex:1">Forge/Fabric/NeoForge installer-JAR сохраняются для повторного использования</span>
+                <button class="btn-browse" id="btn-clear-cache">🗑 Очистить</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Info -->
+          <div class="settings-card sysinfo-card">
+            <div class="settings-card-title">💻 Система</div>
+            <div class="sysinfo-grid" id="sysinfo">Загрузка...</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /content -->
+
+    <!-- DOWNLOAD OVERLAY -->
+    <div class="download-overlay" id="download-overlay" style="display:none">
+      <div class="download-box">
+        <div class="download-title" id="dl-title">Загрузка...</div>
+        <div class="download-file" id="dl-file"></div>
+        <div class="download-bar-wrap">
+          <div class="download-bar-fill" id="dl-bar"></div>
+        </div>
+        <div class="download-percent" id="dl-percent">0%</div>
+      </div>
+    </div>
+
+    <!-- AUTH OVERLAY -->
+    <div class="auth-overlay" id="auth-overlay" style="display:none">
+      <div class="auth-box">
+        <div class="auth-box-icon">🔑</div>
+        <div class="auth-box-title">Вход через Microsoft</div>
+        <div class="auth-box-sub">Войдите в аккаунт Microsoft в открывшемся окне браузера</div>
+        <div class="auth-status" id="auth-overlay-status">Открываем окно авторизации...</div>
+      </div>
+    </div>
+
+    <!-- MOD LIST MODAL -->
+    <div class="modal-backdrop" id="mods-modal" style="display:none">
+      <div class="modal-box modal-box-wide">
+        <div class="modal-header">
+          <span class="modal-title" id="mods-modal-title">📋 Список модов</span>
+          <button class="modal-close" id="mods-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="mods-search-row">
+            <input type="text" id="mods-search" class="mods-search-input" placeholder="Поиск по названию мода...">
+            <span class="mods-count" id="mods-count"></span>
+          </div>
+          <div class="mods-modal-list" id="mods-modal-list">
+            <div class="empty-state">Загрузка...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRASH LOG MODAL -->
+    <div class="modal-backdrop" id="crash-modal" style="display:none">
+      <div class="modal-box modal-box-wide">
+        <div class="modal-header">
+          <span class="modal-title">💥 Игра завершилась с ошибкой</span>
+          <button class="modal-close" id="crash-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="crash-hint">Последние строки лога запуска:</div>
+          <div class="crash-log-box" id="crash-log-box"></div>
+          <div class="crash-actions">
+            <button class="btn-card btn-card-play" id="crash-open-log">📂 Открыть полный лог</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODPACK EDIT MODAL -->
+    <div class="modal-backdrop" id="edit-modal" style="display:none">
+      <div class="modal-box">
+        <div class="modal-header">
+          <span class="modal-title">⚙ Редактировать сборку</span>
+          <button class="modal-close" id="edit-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="edit-pack-name" id="edit-pack-name">—</div>
+          <div class="edit-section-label">Добавить моды в сборку</div>
+          <div class="edit-drop-zone" id="edit-drop-zone">
+            <div class="edit-drop-icon">📦</div>
+            <div>Перетащи .jar файлы сюда</div>
+            <div class="edit-drop-hint">или</div>
+            <button class="btn-browse-jars" id="btn-browse-jars">Выбрать .jar файлы</button>
+          </div>
+          <div class="edit-jar-list" id="edit-jar-list"></div>
+          <div class="edit-section-label" style="margin-top:16px">Что произойдёт</div>
+          <div class="edit-info-box">
+            Новые .jar файлы будут добавлены в существующий архив на GitHub.<br>
+            Архив обновится автоматически — другим достаточно нажать «Обновить» в лаунчере.
+          </div>
+          <div class="edit-log" id="edit-log" style="display:none"></div>
+          <div class="edit-progress" id="edit-progress" style="display:none">
+            <div class="edit-progress-bar-wrap">
+              <div class="edit-progress-bar" id="edit-progress-bar" style="width:0%"></div>
+            </div>
+            <div class="edit-progress-text" id="edit-progress-text">0%</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-modal-cancel" id="edit-modal-cancel">Отмена</button>
+          <button class="btn-modal-save" id="btn-patch-publish" disabled>📤 Загрузить на GitHub</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <div class="statusbar-left">
+        <span id="sb-connection">⬤ Инициализация...</span>
+        <span id="sb-sync"></span>
+      </div>
+      <div class="statusbar-right">
+        <span id="sb-java">Java: —</span>
+        <span id="app-version-label" style="color: var(--purple-glow)">v0.1.0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

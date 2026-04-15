@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CraftSync Launcher</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-deepest: #0d0b14;
+    --bg-deep: #110e1c;
+    --bg-card: #1a1528;
+    --bg-card-hover: #211c34;
+    --bg-sidebar: #130f20;
+    --bg-input: #1e1930;
+    --purple-primary: #7c3aed;
+    --purple-light: #8b5cf6;
+    --purple-glow: #a78bfa;
+    --purple-subtle: #2d1f4e;
+    --purple-border: #4c2d8a;
+    --accent-pink: #c026d3;
+    --accent-blue: #2563eb;
+    --text-primary: #f1f0f5;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --border: #2a2040;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-deepest);
+    color: var(--text-primary);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* === TITLE BAR === */
+  .titlebar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 32px;
+    background: var(--bg-sidebar);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 1000;
+    border-bottom: 1px solid var(--border);
+    -webkit-app-region: drag;
+  }
+  .titlebar-title {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .titlebar-controls {
+    display: flex;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+  }
+  .titlebar-btn {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-close { background: #ff5f57; }
+  .btn-minimize { background: #febc2e; }
+  .btn-maximize { background: #28c840; }
+
+  /* === LAYOUT === */
+  .app {
+    display: flex;
+    width: 100%;
+    padding-top: 32px;
+  }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 32px);
+    overflow: hidden;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--purple-primary), var(--accent-pink));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+  }
+
+  .logo-text {
+    font-size: 17px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--purple-glow), #e879f9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-top: 1px;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 12px 10px;
+    overflow-y: auto;
+  }
+
+  .nav-section {
+    margin-bottom: 20px;
+  }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 10px;
+    margin-bottom: 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    margin-bottom: 2px;
+  }
+
+  .nav-item:hover {
+    background: rgba(124, 58, 237, 0.12);
+    color: var(--text-primary);
+  }
+
+  .nav-item.active {
+    background: linear-gradient(90deg, rgba(124,58,237,0.25), rgba(124,58,237,0.1));
+    color: var(--purple-glow);
+    border-left: 2px solid var(--purple-primary);
+  }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--purple-primary);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+  }
+
+  /* === SIDEBAR BOTTOM / USER === */
+  .sidebar-user {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #7c3aed, #c026d3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+  }
+
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-status { font-size: 11px; color: var(--green); }
+
+  /* === MAIN === */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 32px);
+    overflow: hidden;
+  }
+
+  /* === TOPBAR === */
+  .topbar {
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-deep);
+  }
+
+  .topbar-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+
+  .search-bar {
+    flex: 1;
+    max-width: 340px;
+    position: relative;
+  }
+
+  .search-bar input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 16px 9px 38px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-bar input:focus { border-color: var(--purple-primary); }
+  .search-bar input::placeholder { color: var(--text-muted); }
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .filter-tab {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .filter-tab:hover { background: var(--bg-card); color: var(--text-primary); }
+  .filter-tab.active {
+    background: var(--purple-subtle);
+    border-color: var(--purple-border);
+    color: var(--purple-glow);
+  }
+
+  /* === CONTENT === */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+    background: var(--bg-deepest);
+  }
+
+  .content::-webkit-scrollbar { width: 6px; }
+  .content::-webkit-scrollbar-track { background: transparent; }
+  .content::-webkit-scrollbar-thumb { background: var(--purple-subtle); border-radius: 3px; }
+
+  /* === FEATURED BANNER === */
+  .featured {
+    border-radius: 16px;
+    background: linear-gradient(135deg, #1a0e2e 0%, #2d1054 50%, #1a0e2e 100%);
+    border: 1px solid var(--purple-border);
+    padding: 28px 32px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(124, 58, 237, 0.15);
+  }
+
+  .featured::before {
+    content: '';
+    position: absolute;
+    top: -50%; right: -10%;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(192, 38, 211, 0.2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .featured-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(124, 58, 237, 0.3);
+    border: 1px solid var(--purple-primary);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--purple-glow);
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+
+  .featured-title {
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #fff, var(--purple-glow));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .featured-desc {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: 420px;
+    margin-bottom: 20px;
+  }
+
+  .featured-meta {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .meta-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .meta-value { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+
+  .btn-play {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--purple-primary), var(--accent-pink));
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    font-family: inherit;
+  }
+
+  .btn-play:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(124, 58, 237, 0.6);
+  }
+
+  .featured-img {
+    width: 180px;
+    height: 130px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #3b0764, #1e1b4b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    flex-shrink: 0;
+    border: 1px solid var(--purple-border);
+    box-shadow: 0 0 30px rgba(124, 58, 237, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .featured-img::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(192,38,211,0.1));
+  }
+
+  /* === SECTION HEADER === */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  .btn-viewall {
+    font-size: 12px;
+    color: var(--purple-light);
+    cursor: pointer;
+    font-weight: 500;
+    background: none;
+    border: none;
+    font-family: inherit;
+  }
+
+  .btn-viewall:hover { color: var(--purple-glow); }
+
+  /* === MODPACK GRID === */
+  .modpack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .modpack-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .modpack-card:hover {
+    border-color: var(--purple-border);
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(124, 58, 237, 0.2);
+  }
+
+  .card-banner {
+    height: 110px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+  }
+
+  .card-banner-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 40%, var(--bg-card) 100%);
+    z-index: 1;
+  }
+
+  .card-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  .status-installed { background: rgba(16, 185, 129, 0.2); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); }
+  .status-update { background: rgba(245, 158, 11, 0.2); color: var(--yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
+  .status-new { background: rgba(124, 58, 237, 0.2); color: var(--purple-glow); border: 1px solid var(--purple-border); }
+
+  .card-body { padding: 12px 14px 14px; }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.45;
+    height: 34px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-meta-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .btn-card {
+    padding: 6px 14px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .btn-card-play {
+    background: var(--purple-primary);
+    color: white;
+  }
+
+  .btn-card-play:hover { background: var(--purple-light); }
+
+  .btn-card-install {
+    background: transparent;
+    color: var(--purple-light);
+    border: 1px solid var(--purple-border);
+  }
+
+  .btn-card-install:hover { background: var(--purple-subtle); }
+
+  .btn-card-update {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--yellow);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--purple-primary), var(--accent-pink));
+    transition: width 0.3s;
+  }
+
+  /* === STATUSBAR === */
+  .statusbar {
+    padding: 0 28px;
+    height: 36px;
+    background: var(--bg-sidebar);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .statusbar-left { display: flex; align-items: center; gap: 16px; }
+  .statusbar-right { display: flex; align-items: center; gap: 16px; }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    margin-right: 5px;
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  /* === BANNER COLOR THEMES === */
+  .banner-purple { background: linear-gradient(135deg, #2e1065, #4c1d95); }
+  .banner-pink   { background: linear-gradient(135deg, #500724, #701a75); }
+  .banner-blue   { background: linear-gradient(135deg, #1e1b4b, #312e81); }
+  .banner-teal   { background: linear-gradient(135deg, #042f2e, #134e4a); }
+  .banner-dark   { background: linear-gradient(135deg, #0f172a, #1e293b); }
+
+  /* SCROLLBAR */
+  .sidebar-nav::-webkit-scrollbar { width: 4px; }
+  .sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Animations */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(124,58,237,0.3); }
+    50% { box-shadow: 0 0 35px rgba(124,58,237,0.6); }
+  }
+
+  .logo-icon { animation: pulse-glow 3s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<!-- TITLE BAR -->
+<div class="titlebar">
+  <div class="titlebar-title">⚡ CraftSync</div>
+  <div class="titlebar-controls">
+    <button class="titlebar-btn btn-close"></button>
+    <button class="titlebar-btn btn-minimize"></button>
+    <button class="titlebar-btn btn-maximize"></button>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <div class="logo-text">CraftSync</div>
+          <div class="logo-sub">Minecraft Launcher</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Главная</div>
+        <div class="nav-item active">
+          <span class="nav-icon">🏠</span> Обзор
+        </div>
+        <div class="nav-item" onclick="switchTab(this)">
+          <span class="nav-icon">📦</span> Мои сборки
+          <span class="nav-badge">3</span>
+        </div>
+        <div class="nav-item" onclick="switchTab(this)">
+          <span class="nav-icon">🔍</span> Каталог
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Сеть</div>
+        <div class="nav-item" onclick="switchTab(this)">
+          <span class="nav-icon">👥</span> Друзья
+        </div>
+        <div class="nav-item" onclick="switchTab(this)">
+          <span class="nav-icon">🌐</span> Серверы
+        </div>
+        <div class="nav-item" onclick="switchTab(this)">
+          <span class="nav-icon">📊</span> Статистика
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Управление</div>
+        <div class="nav-item" onclick="switchTab(this)">
+          <span class="nav-icon">⬆️</span> Обновления
+          <span class="nav-badge">2</span>
+        </div>
+        <div class="nav-item" onclick="switchTab(this)">
+          <span class="nav-icon">⚙️</span> Настройки
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">L</div>
+      <div class="user-info">
+        <div class="user-name">Lino</div>
+        <div class="user-status">● В сети</div>
+      </div>
+      <span style="color: var(--text-muted); font-size: 14px;">⚙</span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-title">Обзор</div>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Поиск сборок, модов...">
+      </div>
+      <div class="filter-tabs">
+        <div class="filter-tab active" onclick="setFilter(this)">Все</div>
+        <div class="filter-tab" onclick="setFilter(this)">Установленные</div>
+        <div class="filter-tab" onclick="setFilter(this)">Популярные</div>
+        <div class="filter-tab" onclick="setFilter(this)">Новинки</div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- FEATURED -->
+      <div class="featured">
+        <div>
+          <div class="featured-badge">⭐ Рекомендуемая сборка</div>
+          <div class="featured-title">Infinity Craft Plus</div>
+          <div class="featured-desc">Масштабная технологическая сборка с магией, исследованиями и многопользовательскими механиками. Собрана командой для совместного прохождения.</div>
+          <div class="featured-meta">
+            <div class="meta-item">
+              <div class="meta-label">Версия</div>
+              <div class="meta-value">1.20.1</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Модов</div>
+              <div class="meta-value">312</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Размер</div>
+              <div class="meta-value">4.2 GB</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Игроков</div>
+              <div class="meta-value" style="color: var(--green);">5 онлайн</div>
+            </div>
+          </div>
+          <button class="btn-play" onclick="clickPlay(this)">
+            ▶ Играть
+          </button>
+        </div>
+        <div class="featured-img">🏔️</div>
+      </div>
+
+      <!-- MY MODPACKS -->
+      <div class="section-header">
+        <div class="section-title">📦 Мои сборки <span class="section-count">3 установлено</span></div>
+        <button class="btn-viewall">Смотреть все →</button>
+      </div>
+
+      <div class="modpack-grid">
+
+        <!-- Card 1 - Installed + Update -->
+        <div class="modpack-card">
+          <div class="card-banner banner-purple">
+            🏔️
+            <div class="card-banner-overlay"></div>
+            <div class="card-status status-update">↑ Обновление</div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">Infinity Craft Plus</div>
+            <div class="card-desc">Технологии, магия и исследования в одной сборке</div>
+            <div style="margin-bottom: 8px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; color: var(--yellow); margin-bottom:4px;">
+                <span>Обновление: 1.8.2 → 1.9.0</span>
+                <span>67%</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width: 67%"></div>
+              </div>
+            </div>
+            <div class="card-footer">
+              <div class="card-meta-row">
+                <div class="card-meta">⚡ 312 модов</div>
+                <div class="card-meta">📁 4.2 GB</div>
+              </div>
+              <button class="btn-card btn-card-update">↑ Обновить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2 - Installed -->
+        <div class="modpack-card">
+          <div class="card-banner banner-blue">
+            🌌
+            <div class="card-banner-overlay"></div>
+            <div class="card-status status-installed">✓ Установлен</div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">SkyFactory 5</div>
+            <div class="card-desc">Классический скайблок с современными механиками и технологиями</div>
+            <div class="card-footer">
+              <div class="card-meta-row">
+                <div class="card-meta">⚡ 245 модов</div>
+                <div class="card-meta">📁 3.1 GB</div>
+              </div>
+              <button class="btn-card btn-card-play">▶ Играть</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3 - Installed -->
+        <div class="modpack-card">
+          <div class="card-banner banner-teal">
+            🌿
+            <div class="card-banner-overlay"></div>
+            <div class="card-status status-installed">✓ Установлен</div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">Naturecraft</div>
+            <div class="card-desc">Выживание, экология и природные механики без тяжёлых технологий</div>
+            <div class="card-footer">
+              <div class="card-meta-row">
+                <div class="card-meta">⚡ 98 модов</div>
+                <div class="card-meta">📁 1.4 GB</div>
+              </div>
+              <button class="btn-card btn-card-play">▶ Играть</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CATALOG -->
+      <div class="section-header">
+        <div class="section-title">🔍 Доступные сборки <span class="section-count">в сети</span></div>
+        <button class="btn-viewall">Смотреть все →</button>
+      </div>
+
+      <div class="modpack-grid">
+
+        <div class="modpack-card">
+          <div class="card-banner banner-pink">
+            🔮
+            <div class="card-banner-overlay"></div>
+            <div class="card-status status-new">✨ Новинка</div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">Arcane World</div>
+            <div class="card-desc">Полностью магический мир — зельеварение, руны, тёмные искусства</div>
+            <div class="card-footer">
+              <div class="card-meta-row">
+                <div class="card-meta">⚡ 187 модов</div>
+                <div class="card-meta">📁 2.8 GB</div>
+              </div>
+              <button class="btn-card btn-card-install">⬇ Установить</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modpack-card">
+          <div class="card-banner banner-dark">
+            🤖
+            <div class="card-banner-overlay"></div>
+            <div class="card-status status-new">✨ Новинка</div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">TechReborn Ultra</div>
+            <div class="card-desc">Хардкорные технологии, автоматизация и промышленность</div>
+            <div class="card-footer">
+              <div class="card-meta-row">
+                <div class="card-meta">⚡ 420 модов</div>
+                <div class="card-meta">📁 6.1 GB</div>
+              </div>
+              <button class="btn-card btn-card-install">⬇ Установить</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modpack-card">
+          <div class="card-banner" style="background: linear-gradient(135deg, #1c0533, #3b0764);">
+            ⚔️
+            <div class="card-banner-overlay"></div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">RPG Adventures</div>
+            <div class="card-desc">Данжи, боссы, классы персонажей и квесты для ко-оп прохождения</div>
+            <div class="card-footer">
+              <div class="card-meta-row">
+                <div class="card-meta">⚡ 156 модов</div>
+                <div class="card-meta">📁 2.3 GB</div>
+              </div>
+              <button class="btn-card btn-card-install">⬇ Установить</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /content -->
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <div class="statusbar-left">
+        <span><span class="status-dot"></span>Подключено к серверу</span>
+        <span>Последняя синхронизация: только что</span>
+      </div>
+      <div class="statusbar-right">
+        <span>Java 17.0.9</span>
+        <span>Forge 47.2.0</span>
+        <span style="color: var(--purple-glow);">v0.1.0-alpha</span>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div>
+
+<script>
+  function switchTab(el) {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function setFilter(el) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function clickPlay(btn) {
+    btn.innerHTML = '⏳ Запуск...';
+    btn.style.opacity = '0.8';
+    setTimeout(() => {
+      btn.innerHTML = '▶ Играть';
+      btn.style.opacity = '1';
+    }, 2000);
+  }
+</script>
+
+</body>
+</html>

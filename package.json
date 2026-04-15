@@ -1,0 +1,92 @@
+{
+  "name": "craftsync-launcher",
+  "version": "0.1.0",
+  "description": "Personal Minecraft Launcher with modpack sync via GitHub",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build:installer": "electron-builder --win --x64 --config.win.target=nsis",
+    "build:portable": "electron-builder --win --x64 --config.win.target=portable",
+    "build:linux": "electron-builder --linux --x64 --config.linux.target=zip",
+    "build:linux-full": "electron-builder --linux --x64",
+    "build:all-local": "powershell -ExecutionPolicy Bypass -File build-all.ps1"
+  },
+  "build": {
+    "appId": "com.craftsync.launcher",
+    "productName": "CraftSync",
+    "copyright": "Copyright 2024 Lino",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "sign": null,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CraftSync",
+      "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "CraftSync-Portable-${version}.exe"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Game",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "appImage": {
+      "artifactName": "CraftSync-${version}.AppImage"
+    },
+    "publish": null
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "axios": "^1.6.0",
+    "electron-store": "^8.1.0",
+    "fs-extra": "^11.2.0",
+    "minecraft-launcher-core": "^3.5.3",
+    "node-7z": "^3.0.0",
+    "7zip-bin": "^5.2.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "author": "Lino",
+  "license": "MIT"
+}

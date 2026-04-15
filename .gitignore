@@ -1,0 +1,30 @@
+# Зависимости
+node_modules/
+
+# Сборки
+dist/
+out/
+
+# Логи
+*.log
+npm-debug.log*
+
+# Архивы проекта
+Main.zip
+*.zip
+
+# Временные файлы electron-builder
+dist/__appImage-x64/
+dist/__snap-x64/
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Переменные окружения (если появятся)
+.env
+.env.local
