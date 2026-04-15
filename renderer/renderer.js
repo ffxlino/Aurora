@@ -14,34 +14,73 @@ let state = {
   downloading: null,   // id скачиваемой сборки
 }
 
+// ─── Debug helpers ────────────────────────────────────────────────────────────
+function _debugError(context, err) {
+  const msg = err?.message || String(err)
+  console.error(`[CraftSync DEBUG] ${context}:`, err)
+  // Показываем в статусбаре чтобы было видно без DevTools
+  const sb = document.getElementById('sb-connection')
+  if (sb) {
+    sb.textContent = `⚠ ${context}: ${msg.slice(0, 80)}`
+    sb.style.color  = '#ff4444'
+    sb.title        = msg   // полный текст при наведении
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  setupWindowControls()
-  setupNavigation()
-  setupSearch()
-  setupRefresh()
-  setupUserMenu()
 
-  await loadSettings()
-  await loadSystemInfo()
-  await loadAppVersion()
+  // ── Первая проверка: preload загружен? ────────────────────────────────────
+  if (!window.api) {
+    document.body.style.cssText = 'background:#1a0a0a;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'
+    document.body.innerHTML = `
+      <div style="color:#ff4444;font-family:monospace;font-size:14px;padding:32px;max-width:600px;text-align:center">
+        <div style="font-size:32px;margin-bottom:16px">⚠</div>
+        <div style="font-size:18px;margin-bottom:12px">window.api не определён</div>
+        <div style="color:#aaa">Preload скрипт не загрузился.<br>Нажми F12 и проверь Console.</div>
+      </div>`
+    return
+  }
 
-  // Показываем индикатор загрузки при первом запросе манифеста
-  const connEl = document.getElementById('sb-connection')
-  if (connEl) { connEl.textContent = '⬤ Загрузка...'; connEl.style.color = 'var(--text-muted, #888)' }
-  await loadManifest()
+  // ── Глобальный перехват ошибок рендерера ─────────────────────────────────
+  window.onerror = (msg, src, line, _col, err) => {
+    _debugError('JS Error', err || new Error(`${msg} @ ${src}:${line}`))
+    return false
+  }
+  window.onunhandledrejection = (e) => {
+    _debugError('Unhandled Promise', e.reason)
+  }
 
-  setupDownloadListener()
-  setupGameStatusListener()
-  setupAuthStatusListener()
-  setupEditModal()
-  initPublishPage()
-  setupPublishFormListeners()
+  try {
+    setupWindowControls()
+    setupNavigation()
+    setupSearch()
+    setupRefresh()
+    setupUserMenu()
 
-  // Загружаем новости, аккаунты и проверяем обновления в фоне
-  loadNews()
-  loadAccountsList()
-  checkLauncherUpdate()
+    await loadSettings()
+    await loadSystemInfo()
+    await loadAppVersion()
+
+    // Показываем индикатор загрузки при первом запросе манифеста
+    const connEl = document.getElementById('sb-connection')
+    if (connEl) { connEl.textContent = '⬤ Загрузка...'; connEl.style.color = 'var(--text-muted, #888)' }
+    await loadManifest()
+
+    setupDownloadListener()
+    setupGameStatusListener()
+    setupAuthStatusListener()
+    setupEditModal()
+    initPublishPage()
+    setupPublishFormListeners()
+
+    // Загружаем новости, аккаунты и проверяем обновления в фоне
+    loadNews()
+    loadAccountsList()
+    checkLauncherUpdate()
+  } catch (err) {
+    _debugError('Init failed', err)
+  }
 })
 
 // ─── Window Controls ──────────────────────────────────────────────────────────
@@ -722,7 +761,7 @@ function hideDownloadOverlay() {
 
 // ─── Game Status ──────────────────────────────────────────────────────────────
 function setupGameStatusListener() {
-  window.api.on.gameStatus((data) => {
+  window.api.on.gameStatus(async (data) => {
     console.log('[Game status]', data)
 
     if (data.status === 'launched') {
