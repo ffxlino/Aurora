@@ -2,6 +2,12 @@ const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
+// На Linux отключаем sandbox — иначе IPC может не работать в AppImage
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox')
+  app.commandLine.appendSwitch('disable-setuid-sandbox')
+}
+
 // Modules
 const ManifestManager = require('./src/manifest')
 const Downloader = require('./src/downloader')

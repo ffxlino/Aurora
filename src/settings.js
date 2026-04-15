@@ -1,105 +1,126 @@
 /**
  * settings.js — хранение настроек пользователя в JSON файле.
- * Сохраняется в папку данных приложения (AppData/Roaming на Windows).
+ * Сохраняется в папку данных приложения (AppData/Roaming на Windows,
+ * ~/.config на Linux).
+ *
+ * ВАЖНО: app.getPath() вызывается лениво (только после app.ready),
+ * чтобы не падать на Linux при загрузке модуля до инициализации Electron.
  */
 
 const path = require('path')
 const fs = require('fs-extra')
 const { app } = require('electron')
 
-const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json')
-
 // URL манифеста — захардкожен, меняется только здесь
 const MANIFEST_URL = 'https://raw.githubusercontent.com/ffxlino/CMML/main/manifest.json'
 
-// Настройки по умолчанию
-const DEFAULTS = {
-  // Личные данные
-  username: 'Player',
-  uuid: null,
-  authType: 'offline',
+// Ленивые геттеры путей — вызываются только после app.ready
+function getSettingsFile() {
+  return path.join(app.getPath('userData'), 'settings.json')
+}
 
-  // GitHub — источник сборок (фиксированный URL)
-  manifestUrl: MANIFEST_URL,
+function getDefaults() {
+  return {
+    // Личные данные
+    username:  'Player',
+    uuid:      null,
+    authType:  'offline',
 
-  // Пути
-  gamePath:      path.join(app.getPath('appData'), '.craftsync'), // где хранятся сборки
-  minecraftPath: path.join(app.getPath('appData'), '.minecraft'), // путь к .minecraft
+    // GitHub — источник сборок (фиксированный URL)
+    manifestUrl: MANIFEST_URL,
 
-  // Память Java (MB)
-  minRam: 1024,
-  maxRam: 4096,
+    // Пути
+    gamePath:      path.join(app.getPath('appData'), '.craftsync'),
+    minecraftPath: path.join(app.getPath('appData'), '.minecraft'),
 
-  // Дополнительные аргументы JVM
-  jvmArgs: '',
+    // Память Java (MB)
+    minRam: 1024,
+    maxRam: 4096,
 
-  // Java путь (пустая строка = авто-определение)
-  javaPath: '',
+    // Дополнительные аргументы JVM
+    jvmArgs: '',
 
-  // Разрешение окна игры
-  gameWidth: 1280,
-  gameHeight: 720,
-  fullscreen: false,
+    // Java путь (пустая строка = авто-определение)
+    javaPath: '',
 
-  // GitHub публикация
-  githubToken: '',          // Personal Access Token (repo scope)
+    // Разрешение окна игры
+    gameWidth:  1280,
+    gameHeight: 720,
+    fullscreen: false,
 
-  // Лаунчер
-  closeOnLaunch: false,     // закрывать лаунчер при запуске игры
-  checkUpdatesOnStart: true,
-  language: 'ru',
+    // GitHub публикация
+    githubToken: '',
 
-  // Список сохранённых аккаунтов
-  accounts: [],
+    // Лаунчер
+    closeOnLaunch:      false,
+    checkUpdatesOnStart: true,
+    language:           'ru',
 
-  // GitHub репозиторий лаунчера для авто-проверки обновлений (например: ffxlino/CraftSync)
-  launcherRepo: ''
+    // Список сохранённых аккаунтов
+    accounts: [],
+
+    // GitHub репозиторий лаунчера для авто-проверки обновлений
+    launcherRepo: ''
+  }
 }
 
 class Settings {
   constructor() {
-    this._data = {}
+    this._data = null   // загружается лениво при первом обращении
+  }
+
+  // Ленивая инициализация — безопасна для вызова до app.ready
+  _ensureLoaded() {
+    if (this._data !== null) return
     this._load()
   }
 
   _load() {
+    const defaults = getDefaults()
     try {
-      if (fs.existsSync(SETTINGS_FILE)) {
-        const raw = fs.readFileSync(SETTINGS_FILE, 'utf-8')
-        this._data = { ...DEFAULTS, ...JSON.parse(raw) }
+      const file = getSettingsFile()
+      if (fs.existsSync(file)) {
+        const raw = fs.readFileSync(file, 'utf-8')
+        this._data = { ...defaults, ...JSON.parse(raw) }
       } else {
-        this._data = { ...DEFAULTS }
+        this._data = { ...defaults }
         this._save()
       }
     } catch (err) {
       console.error('[Settings] Ошибка загрузки, используются defaults:', err.message)
-      this._data = { ...DEFAULTS }
+      this._data = { ...defaults }
     }
   }
 
   _save() {
     try {
-      fs.ensureDirSync(path.dirname(SETTINGS_FILE))
-      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(this._data, null, 2), 'utf-8')
+      const file = getSettingsFile()
+      fs.ensureDirSync(path.dirname(file))
+      fs.writeFileSync(file, JSON.stringify(this._data, null, 2), 'utf-8')
     } catch (err) {
       console.error('[Settings] Ошибка сохранения:', err.message)
     }
   }
 
   getAll() {
+    this._ensureLoaded()
     return { ...this._data }
   }
 
   get(key) {
-    return this._data[key] !== undefined ? this._data[key] : DEFAULTS[key]
+    this._ensureLoaded()
+    const defaults = getDefaults()
+    return this._data[key] !== undefined ? this._data[key] : defaults[key]
   }
 
   set(key, value) {
+    this._ensureLoaded()
     this._data[key] = value
     this._save()
   }
 
   setMany(obj) {
+    this._ensureLoaded()
     Object.assign(this._data, obj)
     this._save()
   }
