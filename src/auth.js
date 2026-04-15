@@ -1,43 +1,73 @@
 /**
- * auth.js — авторизация через Microsoft для доступа к лицензионным серверам.
+ * auth.js — авторизация через Microsoft (localhost loopback OAuth).
  *
  * Поток:
- *  1. Открываем Electron BrowserWindow с Microsoft OAuth URL (login.live.com)
- *  2. Пользователь логинится
- *  3. Microsoft редиректит на login.live.com/oauth20_desktop.srf — перехватываем code
- *  4. Меняем code → MS access_token (login.live.com/oauth20_token.srf)
- *  5. MS access_token → Xbox Live token
- *  6. Xbox Live token → XSTS token
- *  7. XSTS → Minecraft token
- *  8. Minecraft token → профиль (UUID + ник)
- *  9. Сохраняем всё в настройках
+ *  1. Запускаем временный HTTP-сервер на случайном порту (127.0.0.1:PORT)
+ *  2. Открываем Microsoft OAuth URL в системном браузере пользователя
+ *  3. Пользователь логинится в браузере
+ *  4. Microsoft редиректит на http://localhost:PORT?code=...
+ *  5. Сервер перехватывает code, закрывается, показывает страницу "можно закрыть"
+ *  6. code → MS access_token → Xbox Live → XSTS → Minecraft token → профиль
+ *  7. Сохраняем всё в настройках
  */
 
-const { BrowserWindow } = require('electron')
-const axios = require('axios')
+const http    = require('http')
+const { shell } = require('electron')
+const axios   = require('axios')
 const Settings = require('./settings')
 
-// Официальный client_id Minecraft launcher (desktop app, не требует client_secret)
-const CLIENT_ID    = '00000000402b5328'
-const REDIRECT_URI = 'https://login.live.com/oauth20_desktop.srf'
-
-// Windows Live / Xbox endpoints
-const MS_AUTH_URL  = 'https://login.live.com/oauth20_authorize.srf'
+const CLIENT_ID   = '00000000402b5328'
+const MS_AUTH_URL = 'https://login.live.com/oauth20_authorize.srf'
 const MS_TOKEN_URL = 'https://login.live.com/oauth20_token.srf'
-const XBOX_URL     = 'https://user.auth.xboxlive.com/user/authenticate'
-const XSTS_URL     = 'https://xsts.auth.xboxlive.com/xsts/authorize'
-const MC_AUTH_URL  = 'https://api.minecraftservices.com/authentication/login_with_xbox'
-const MC_PROFILE   = 'https://api.minecraftservices.com/minecraft/profile'
+const XBOX_URL    = 'https://user.auth.xboxlive.com/user/authenticate'
+const XSTS_URL    = 'https://xsts.auth.xboxlive.com/xsts/authorize'
+const MC_AUTH_URL = 'https://api.minecraftservices.com/authentication/login_with_xbox'
+const MC_PROFILE  = 'https://api.minecraftservices.com/minecraft/profile'
+
+// HTML-страница, которую пользователь видит в браузере после успешного входа
+const SUCCESS_HTML = `<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>CraftSync — Вход выполнен</title>
+<style>
+  body { margin: 0; display: flex; align-items: center; justify-content: center;
+         min-height: 100vh; background: #0d0b14; font-family: Inter, sans-serif; color: #f1f0f5; }
+  .box { text-align: center; padding: 48px; max-width: 420px; }
+  .icon { font-size: 64px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0 0 8px; color: #7c3aed; }
+  p  { color: #9ca3af; margin: 0; line-height: 1.5; }
+</style></head>
+<body><div class="box">
+  <div class="icon">✅</div>
+  <h1>Авторизация успешна!</h1>
+  <p>Вы вошли в аккаунт.<br>Эту вкладку можно закрыть — лаунчер уже получил данные.</p>
+</div></body></html>`
+
+const ERROR_HTML = (msg) => `<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>CraftSync — Ошибка</title>
+<style>
+  body { margin: 0; display: flex; align-items: center; justify-content: center;
+         min-height: 100vh; background: #0d0b14; font-family: Inter, sans-serif; color: #f1f0f5; }
+  .box { text-align: center; padding: 48px; max-width: 420px; }
+  .icon { font-size: 64px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0 0 8px; color: #ef4444; }
+  p  { color: #9ca3af; margin: 0; }
+</style></head>
+<body><div class="box">
+  <div class="icon">❌</div>
+  <h1>Ошибка авторизации</h1>
+  <p>${msg}</p>
+</div></body></html>`
 
 class Auth {
 
   // ── Полный поток Microsoft авторизации ────────────────────────────────────
   async loginWithMicrosoft(onStatus) {
-    onStatus('Открываем окно авторизации Microsoft...')
-    const authCode = await this._getMicrosoftAuthCode()
+    onStatus('Открываем браузер для входа...')
+    const { code, redirectUri } = await this._getMicrosoftAuthCode(onStatus)
 
     onStatus('Получаем токен Microsoft...')
-    const msTokens = await this._getMicrosoftToken(authCode)
+    const msTokens = await this._getMicrosoftToken(code, redirectUri)
 
     onStatus('Авторизуемся в Xbox Live...')
     const xblToken = await this._getXboxToken(msTokens.access_token)
@@ -54,13 +84,12 @@ class Auth {
     onStatus('Получаем профиль игрока...')
     const profile = await this._getMinecraftProfile(mcToken.access_token)
 
-    // Сохраняем
-    Settings.set('authType',        'microsoft')
-    Settings.set('username',        profile.name)
-    Settings.set('uuid',            profile.id)
-    Settings.set('mcToken',         mcToken.access_token)
-    Settings.set('mcTokenExpires',  Date.now() + mcToken.expires_in * 1000)
-    Settings.set('msRefreshToken',  msTokens.refresh_token)
+    Settings.set('authType',       'microsoft')
+    Settings.set('username',       profile.name)
+    Settings.set('uuid',           profile.id)
+    Settings.set('mcToken',        mcToken.access_token)
+    Settings.set('mcTokenExpires', Date.now() + mcToken.expires_in * 1000)
+    Settings.set('msRefreshToken', msTokens.refresh_token)
 
     onStatus(`✅ Авторизован как ${profile.name}`)
     return {
@@ -75,10 +104,8 @@ class Auth {
   async refreshIfNeeded() {
     const expiry       = Settings.get('mcTokenExpires') || 0
     const refreshToken = Settings.get('msRefreshToken')
-
     if (!refreshToken) return null
 
-    // Токен ещё свеж (с запасом 1 минута)
     if (Date.now() < expiry - 60_000) {
       return {
         access_token: Settings.get('mcToken'),
@@ -94,11 +121,10 @@ class Auth {
           client_id:     CLIENT_ID,
           refresh_token: refreshToken,
           grant_type:    'refresh_token',
-          redirect_uri:  REDIRECT_URI
+          redirect_uri:  'http://localhost'  // при refresh redirect_uri не важен, но обязателен
         }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15000 }
       )
-
       const xbl  = await this._getXboxToken(res.data.access_token)
       const xsts = await this._getXSTSToken(xbl.Token)
       const mc   = await this._getMinecraftToken(xsts.Token, xsts.DisplayClaims.xui[0].uhs)
@@ -118,7 +144,6 @@ class Auth {
     }
   }
 
-  // ── Выйти из аккаунта ─────────────────────────────────────────────────────
   logout() {
     Settings.set('authType',       'offline')
     Settings.set('uuid',           null)
@@ -127,76 +152,84 @@ class Auth {
     Settings.set('msRefreshToken', null)
   }
 
-  // ── Получить auth code через Electron BrowserWindow ───────────────────────
-  // Используем login.live.com + REDIRECT_URI = oauth20_desktop.srf
-  // Перехватываем редирект через will-redirect / will-navigate событие
-  async _getMicrosoftAuthCode() {
+  // ── Localhost loopback OAuth ──────────────────────────────────────────────
+  // Запускаем временный HTTP-сервер, открываем браузер, ждём редиректа
+  _getMicrosoftAuthCode(onStatus) {
     return new Promise((resolve, reject) => {
-      const params = new URLSearchParams({
-        client_id:     CLIENT_ID,
-        response_type: 'code',
-        redirect_uri:  REDIRECT_URI,
-        scope:         'XboxLive.signin offline_access',
-        prompt:        'select_account'
-      })
+      const server = http.createServer((req, res) => {
+        try {
+          const url   = new URL(req.url, 'http://localhost')
+          const code  = url.searchParams.get('code')
+          const error = url.searchParams.get('error')
 
-      const authUrl = `${MS_AUTH_URL}?${params.toString()}`
-
-      const win = new BrowserWindow({
-        width:           500,
-        height:          650,
-        title:           'Войти через Microsoft',
-        autoHideMenuBar: true,
-        webPreferences:  { nodeIntegration: false, contextIsolation: true }
-      })
-
-      let resolved = false
-
-      const handleUrl = (navUrl) => {
-        if (!navUrl.startsWith(REDIRECT_URI)) return
-        const parsed = new URL(navUrl)
-        const code   = parsed.searchParams.get('code')
-        const error  = parsed.searchParams.get('error')
-
-        if (!resolved) {
-          resolved = true
-          win.destroy()
-          if (code)  resolve(code)
-          else       reject(new Error(error || 'Авторизация отменена'))
-        }
-      }
-
-      // Перехватываем редиректы
-      win.webContents.on('will-redirect', (_e, navUrl) => handleUrl(navUrl))
-      win.webContents.on('will-navigate',  (_e, navUrl) => handleUrl(navUrl))
-      win.webContents.on('did-navigate',   (_e, navUrl) => handleUrl(navUrl))
-
-      win.on('closed', () => {
-        if (!resolved) {
-          resolved = true
-          reject(new Error('Окно авторизации закрыто'))
+          if (code) {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+            res.end(SUCCESS_HTML)
+            server.close()
+            resolve({ code, redirectUri: `http://localhost:${port}` })
+          } else {
+            res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
+            res.end(ERROR_HTML(error || 'Неизвестная ошибка'))
+            server.close()
+            reject(new Error(error || 'Авторизация отменена'))
+          }
+        } catch (e) {
+          res.writeHead(500)
+          res.end('Internal error')
+          server.close()
+          reject(e)
         }
       })
 
-      win.loadURL(authUrl)
+      // Таймаут 10 минут — если пользователь не завершил вход
+      const timeout = setTimeout(() => {
+        server.close()
+        reject(new Error('Время ожидания истекло (10 минут). Попробуйте ещё раз.'))
+      }, 10 * 60 * 1000)
+
+      server.on('error', (err) => {
+        clearTimeout(timeout)
+        reject(err)
+      })
+
+      // port=0 → ОС выбирает свободный порт автоматически
+      let port
+      server.listen(0, '127.0.0.1', () => {
+        port = server.address().port
+        const redirectUri = `http://localhost:${port}`
+
+        const params = new URLSearchParams({
+          client_id:     CLIENT_ID,
+          response_type: 'code',
+          redirect_uri:  redirectUri,
+          scope:         'XboxLive.signin offline_access',
+          prompt:        'select_account'
+        })
+
+        const authUrl = `${MS_AUTH_URL}?${params.toString()}`
+        shell.openExternal(authUrl)
+        if (onStatus) onStatus('Браузер открыт — войдите в аккаунт Microsoft...')
+      })
+
+      // Закрываем сервер при завершении промиса
+      server.once('close', () => clearTimeout(timeout))
     })
   }
 
   // ── Обменять code на MS access_token ─────────────────────────────────────
-  async _getMicrosoftToken(code) {
+  async _getMicrosoftToken(code, redirectUri) {
     const res = await axios.post(MS_TOKEN_URL,
       new URLSearchParams({
         client_id:    CLIENT_ID,
         code,
         grant_type:   'authorization_code',
-        redirect_uri: REDIRECT_URI
+        redirect_uri: redirectUri   // должен совпадать с тем что был при запросе кода
       }),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15000 }
     )
     return res.data
   }
 
-  // ── Xbox Live токен ───────────────────────────────────────────────────────
   async _getXboxToken(msAccessToken) {
     const res = await axios.post(XBOX_URL, {
       Properties: {
@@ -213,7 +246,6 @@ class Auth {
     return res.data
   }
 
-  // ── XSTS токен ────────────────────────────────────────────────────────────
   async _getXSTSToken(xblToken) {
     const res = await axios.post(XSTS_URL, {
       Properties:   { SandboxId: 'RETAIL', UserTokens: [xblToken] },
@@ -226,7 +258,6 @@ class Auth {
     return res.data
   }
 
-  // ── Minecraft токен ───────────────────────────────────────────────────────
   async _getMinecraftToken(xstsToken, uhs) {
     const res = await axios.post(MC_AUTH_URL,
       { identityToken: `XBL3.0 x=${uhs};${xstsToken}` },
@@ -235,7 +266,6 @@ class Auth {
     return res.data
   }
 
-  // ── Профиль игрока ────────────────────────────────────────────────────────
   async _getMinecraftProfile(mcToken) {
     const res = await axios.get(MC_PROFILE, {
       headers: { Authorization: `Bearer ${mcToken}` },

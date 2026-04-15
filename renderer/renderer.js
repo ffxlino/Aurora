@@ -110,7 +110,7 @@ function setupUserMenu() {
   // Microsoft login
   document.getElementById('popup-ms-login').addEventListener('click', async () => {
     popup.style.display = 'none'
-    showAuthOverlay('Открываем окно Microsoft...')
+    showAuthOverlay('Открываем браузер для входа...')
 
     const result = await window.api.auth.loginMicrosoft()
 
