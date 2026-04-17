@@ -1,81 +1,66 @@
 /**
  * settings.js — хранение настроек пользователя в JSON файле.
- * Сохраняется в папку данных приложения (AppData/Roaming на Windows,
- * ~/.config на Linux).
+ * Сохраняется в папку данных приложения.
  *
- * ВАЖНО: app.getPath() вызывается лениво (только после app.ready),
- * чтобы не падать на Linux при загрузке модуля до инициализации Electron.
+ * app.getPath() вызывается лениво (при первом обращении после app.ready),
+ * чтобы корректно работать на Linux.
  */
 
 const path = require('path')
-const fs = require('fs-extra')
+const fs   = require('fs-extra')
 const { app } = require('electron')
 
-// URL манифеста — захардкожен, меняется только здесь
 const MANIFEST_URL = 'https://raw.githubusercontent.com/ffxlino/CMML/main/manifest.json'
 
-// Ленивые геттеры путей — вызываются только после app.ready
+// Кэш: заполняется один раз при первом вызове после app.ready
+let _settingsFile = null
+let _defaults     = null
+
 function getSettingsFile() {
-  return path.join(app.getPath('userData'), 'settings.json')
+  if (!_settingsFile)
+    _settingsFile = path.join(app.getPath('userData'), 'settings.json')
+  return _settingsFile
 }
 
 function getDefaults() {
-  return {
-    // Личные данные
-    username:  'Player',
-    uuid:      null,
-    authType:  'offline',
+  if (!_defaults) {
+    _defaults = {
+      username:  'Player',
+      uuid:      null,
+      authType:  'offline',
 
-    // GitHub — источник сборок (фиксированный URL)
-    manifestUrl: MANIFEST_URL,
+      manifestUrl: MANIFEST_URL,
 
-    // Пути
-    gamePath:      path.join(app.getPath('appData'), '.craftsync'),
-    minecraftPath: path.join(app.getPath('appData'), '.minecraft'),
+      gamePath:      path.join(app.getPath('appData'), '.craftsync'),
+      minecraftPath: path.join(app.getPath('appData'), '.minecraft'),
 
-    // Память Java (MB)
-    minRam: 1024,
-    maxRam: 4096,
+      minRam:     1024,
+      maxRam:     4096,
+      jvmArgs:    '',
+      javaPath:   '',
 
-    // Дополнительные аргументы JVM
-    jvmArgs: '',
+      gameWidth:  1280,
+      gameHeight: 720,
+      fullscreen: false,
 
-    // Java путь (пустая строка = авто-определение)
-    javaPath: '',
-
-    // Разрешение окна игры
-    gameWidth:  1280,
-    gameHeight: 720,
-    fullscreen: false,
-
-    // GitHub публикация
-    githubToken: '',
-
-    // Лаунчер
-    closeOnLaunch:      false,
-    checkUpdatesOnStart: true,
-    language:           'ru',
-
-    // Список сохранённых аккаунтов
-    accounts: [],
-
-    // GitHub репозиторий лаунчера для авто-проверки обновлений
-    launcherRepo: ''
+      githubToken:         '',
+      closeOnLaunch:       false,
+      checkUpdatesOnStart: true,
+      language:            'ru',
+      accounts:            [],
+      launcherRepo:        ''
+    }
   }
+  return _defaults
 }
 
 class Settings {
   constructor() {
-    this._data = null   // загружается лениво при первом обращении
+    this._data = null  // лениво инициализируется при первом обращении
   }
 
-  // Ленивая инициализация — безопасна для вызова до app.ready
   _ensureLoaded() {
     if (this._data !== null) return
-    this._load()
-  }
-
-  _load() {
     const defaults = getDefaults()
     try {
       const file = getSettingsFile()
@@ -109,8 +94,7 @@ class Settings {
 
   get(key) {
     this._ensureLoaded()
-    const defaults = getDefaults()
-    return this._data[key] !== undefined ? this._data[key] : defaults[key]
+    return this._data[key] !== undefined ? this._data[key] : getDefaults()[key]
   }
 
   set(key, value) {

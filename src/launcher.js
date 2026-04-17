@@ -94,6 +94,20 @@ class GameLauncher {
       ? this._buildForgeJvmArgs(minecraftRoot, loaderVersionId)
       : []
 
+    // Определяем путь к Java: настройки → авто-поиск (те же пути что ForgeInstaller)
+    let resolvedJavaPath = settings.javaPath || ''
+    if (!resolvedJavaPath) {
+      try {
+        resolvedJavaPath = await ForgeInstaller._findJava(minecraftRoot)
+        Logger.session(`[Launcher] Java auto-detected: ${resolvedJavaPath}`)
+      } catch (err) {
+        Logger.session('[Launcher] Java не найдена автоматически, используем "java" из PATH')
+        resolvedJavaPath = process.platform === 'win32' ? 'java.exe' : 'java'
+      }
+    } else {
+      Logger.session(`[Launcher] Java из настроек: ${resolvedJavaPath}`)
+    }
+
     const launchOptions = {
       authorization: auth,
 
@@ -117,7 +131,7 @@ class GameLauncher {
         fullscreen: !!settings.fullscreen
       },
 
-      ...(settings.javaPath ? { javaPath: settings.javaPath } : {}),
+      javaPath: resolvedJavaPath,
 
       // Кастомные JVM аргументы из настроек пользователя
       ...(() => {

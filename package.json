@@ -20,19 +20,52 @@
       "output": "dist",
       "buildResources": "assets"
     },
+    "compression": "maximum",
     "files": [
       "main.js",
       "preload.js",
       "renderer/**/*",
       "src/**/*",
       "assets/**/*",
+      "package.json",
       "node_modules/**/*",
-      "package.json"
+
+      "!node_modules/**/*.md",
+      "!node_modules/**/*.MD",
+      "!node_modules/**/README*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/HISTORY*",
+      "!node_modules/**/LICENSE*",
+      "!node_modules/**/LICENCE*",
+      "!node_modules/**/NOTICE*",
+
+      "!node_modules/**/test/**",
+      "!node_modules/**/tests/**",
+      "!node_modules/**/__tests__/**",
+      "!node_modules/**/*.test.js",
+      "!node_modules/**/*.spec.js",
+      "!node_modules/**/jest.config*",
+
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/*.map",
+
+      "!node_modules/**/docs/**",
+      "!node_modules/**/doc/**",
+      "!node_modules/**/examples/**",
+      "!node_modules/**/example/**",
+      "!node_modules/**/.github/**",
+      "!node_modules/**/.nyc_output/**",
+      "!node_modules/**/coverage/**"
     ],
     "win": {
       "icon": "assets/icon.ico",
       "signAndEditExecutable": false,
       "sign": null,
+      "extraFiles": [],
+      "files": [
+        "!node_modules/7zip-bin/linux/**",
+        "!node_modules/7zip-bin/mac/**"
+      ],
       "target": [
         {
           "target": "nsis",
@@ -58,6 +91,10 @@
     "linux": {
       "icon": "assets/icon.png",
       "category": "Game",
+      "files": [
+        "!node_modules/7zip-bin/win/**",
+        "!node_modules/7zip-bin/mac/**"
+      ],
       "target": [
         {
           "target": "AppImage",

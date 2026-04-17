@@ -940,15 +940,59 @@ body {
   display: flex; flex-direction: column; gap: 2px;
   max-height: 420px;
 }
+.mods-filter-row {
+  display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.mods-filter-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted);
+  font-size: 12px; cursor: pointer; transition: all 0.15s;
+}
+.mods-filter-btn:hover { border-color: var(--purple-primary); color: var(--text-primary); }
+.mods-filter-btn.active {
+  background: var(--purple-primary); border-color: var(--purple-primary);
+  color: #fff;
+}
+.side-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.side-client { background: #22c55e; }
+.side-server { background: #f97316; }
+.side-both   { background: #60a5fa; }
+
 .mod-list-item {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 10px; border-radius: 7px;
   transition: background 0.15s;
 }
 .mod-list-item:hover { background: rgba(255,255,255,0.04); }
-.mod-list-icon { font-size: 14px; flex-shrink: 0; opacity: 0.6; }
-.mod-list-name { flex: 1; font-size: 13px; color: var(--text-primary); word-break: break-word; }
+.mod-list-icon {
+  width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0;
+  object-fit: cover; background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; overflow: hidden;
+}
+.mod-list-icon img {
+  width: 100%; height: 100%; border-radius: 6px; object-fit: cover;
+}
+.mod-list-info { flex: 1; min-width: 0; }
+.mod-list-name { font-size: 13px; color: var(--text-primary); word-break: break-word; display: block; }
+.mod-list-filename { font-size: 10px; color: var(--text-muted); word-break: break-all; display: block; margin-top: 1px; }
+.mod-list-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .mod-list-size { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.mod-side-badge {
+  font-size: 10px; padding: 2px 7px; border-radius: 10px;
+  font-weight: 600; white-space: nowrap; letter-spacing: 0.3px;
+}
+.mod-side-badge.client { background: rgba(34,197,94,0.15);  color: #22c55e; }
+.mod-side-badge.server { background: rgba(249,115,22,0.15); color: #f97316; }
+.mod-side-badge.both   { background: rgba(96,165,250,0.15); color: #60a5fa; }
+.mod-source-badge {
+  font-size: 10px; padding: 2px 6px; border-radius: 10px;
+  background: rgba(255,255,255,0.07); color: var(--text-muted);
+  white-space: nowrap;
+}
 
 /* ── CRASH LOG MODAL ─────────────────────────────────────────────────────────── */
 .crash-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }

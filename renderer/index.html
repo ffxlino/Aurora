@@ -487,6 +487,18 @@
             <input type="text" id="mods-search" class="mods-search-input" placeholder="Поиск по названию мода...">
             <span class="mods-count" id="mods-count"></span>
           </div>
+          <div class="mods-filter-row">
+            <button class="mods-filter-btn active" data-side="all">Все</button>
+            <button class="mods-filter-btn" data-side="client">
+              <span class="side-dot side-client"></span>Client
+            </button>
+            <button class="mods-filter-btn" data-side="server">
+              <span class="side-dot side-server"></span>Server
+            </button>
+            <button class="mods-filter-btn" data-side="both">
+              <span class="side-dot side-both"></span>Both
+            </button>
+          </div>
           <div class="mods-modal-list" id="mods-modal-list">
             <div class="empty-state">Загрузка...</div>
           </div>

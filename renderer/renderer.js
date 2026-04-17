@@ -1439,34 +1439,86 @@ async function saveCurrentAccountToList() {
 }
 
 // ─── Mod List Modal ───────────────────────────────────────────────────────────
-let _modsModalData = []
+let _modsModalData  = []
+let _modsActiveSide = 'all'
 
 async function openModsModal(mp) {
-  const modal = document.getElementById('mods-modal')
-  const title = document.getElementById('mods-modal-title')
-  const list  = document.getElementById('mods-modal-list')
-  const count = document.getElementById('mods-count')
+  const modal  = document.getElementById('mods-modal')
+  const title  = document.getElementById('mods-modal-title')
+  const list   = document.getElementById('mods-modal-list')
+  const count  = document.getElementById('mods-count')
   const search = document.getElementById('mods-search')
   if (!modal) return
 
-  title.textContent = `📋 Моды: ${mp.name}`
-  list.innerHTML = '<div class="empty-state">Загрузка...</div>'
-  count.textContent = ''
-  search.value = ''
+  title.textContent  = `📋 Моды: ${mp.name}`
+  list.innerHTML     = '<div class="empty-state">Загрузка...</div>'
+  count.textContent  = ''
+  search.value       = ''
+  _modsActiveSide    = 'all'
   modal.style.display = 'flex'
 
-  const result = await window.api.modpack.listMods(mp.id)
-  _modsModalData = result.mods || []
-  renderModsList(_modsModalData)
+  // Сброс активной кнопки фильтра
+  document.querySelectorAll('.mods-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.side === 'all')
+  })
 
-  search.oninput = () => {
-    const q = search.value.toLowerCase()
-    renderModsList(q ? _modsModalData.filter(m => m.name.toLowerCase().includes(q)) : _modsModalData)
+  // Предпочитаем метаданные из манифеста (с иконками + стороной)
+  if (Array.isArray(mp.mods) && mp.mods.length > 0) {
+    _modsModalData = mp.mods.map(m => ({
+      displayName: m.displayName || m.filename.replace(/\.jar$/i, ''),
+      filename:    m.filename,
+      iconUrl:     m.iconUrl || null,
+      side:        m.side || 'both',
+      source:      m.source || 'custom',
+      size:        null
+    }))
+  } else {
+    // Фолбек: читаем установленные .jar файлы (нет метаданных о стороне)
+    const result = await window.api.modpack.listMods(mp.id)
+    _modsModalData = (result.mods || []).map(m => ({
+      displayName: m.name.replace(/\.jar$/i, ''),
+      filename:    m.name,
+      iconUrl:     null,
+      side:        'both',
+      source:      'local',
+      size:        m.size
+    }))
   }
+
+  _applyModsFilter()
+
+  search.oninput = _applyModsFilter
+
+  // Фильтр по стороне
+  document.querySelectorAll('.mods-filter-btn').forEach(btn => {
+    btn.onclick = () => {
+      _modsActiveSide = btn.dataset.side
+      document.querySelectorAll('.mods-filter-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      _applyModsFilter()
+    }
+  })
 
   document.getElementById('mods-modal-close').onclick = () => {
     modal.style.display = 'none'
   }
+}
+
+function _applyModsFilter() {
+  const search = document.getElementById('mods-search')
+  const q = (search ? search.value : '').toLowerCase()
+  let filtered = _modsModalData
+
+  if (_modsActiveSide !== 'all') {
+    filtered = filtered.filter(m => m.side === _modsActiveSide)
+  }
+  if (q) {
+    filtered = filtered.filter(m =>
+      m.displayName.toLowerCase().includes(q) ||
+      m.filename.toLowerCase().includes(q)
+    )
+  }
+  renderModsList(filtered)
 }
 
 function renderModsList(mods) {
@@ -1480,12 +1532,33 @@ function renderModsList(mods) {
   }
 
   list.innerHTML = mods.map(m => {
-    const name = m.name.replace(/\.jar$/, '')
-    const size = m.size >= 1024 ? (m.size / 1024).toFixed(1) + ' MB' : m.size + ' KB'
+    const sideLabel = { client: 'Client', server: 'Server', both: 'Both' }[m.side] || 'Both'
+    const sideClass = m.side || 'both'
+
+    // Иконка: картинка с Modrinth или emoji-фолбек
+    const iconHtml = m.iconUrl
+      ? `<div class="mod-list-icon"><img src="${escapeHtml(m.iconUrl)}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='⚙'"></div>`
+      : `<div class="mod-list-icon">⚙</div>`
+
+    const sizeStr = m.size != null
+      ? (m.size >= 1024 ? (m.size / 1024).toFixed(1) + ' MB' : m.size + ' KB')
+      : ''
+
+    const sourceBadge = m.source === 'modrinth'
+      ? `<span class="mod-source-badge">Modrinth</span>`
+      : m.source === 'local' ? '' : `<span class="mod-source-badge">Custom</span>`
+
     return `<div class="mod-list-item">
-      <span class="mod-list-icon">⚙</span>
-      <span class="mod-list-name">${escapeHtml(name)}</span>
-      <span class="mod-list-size">${size}</span>
+      ${iconHtml}
+      <div class="mod-list-info">
+        <span class="mod-list-name">${escapeHtml(m.displayName)}</span>
+        <span class="mod-list-filename">${escapeHtml(m.filename)}</span>
+      </div>
+      <div class="mod-list-meta">
+        ${sizeStr ? `<span class="mod-list-size">${sizeStr}</span>` : ''}
+        ${sourceBadge}
+        <span class="mod-side-badge ${sideClass}">${sideLabel}</span>
+      </div>
     </div>`
   }).join('')
 }

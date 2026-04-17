@@ -8,6 +8,18 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('disable-setuid-sandbox')
 }
 
+// ─── Глобальный перехват ошибок main процесса ─────────────────────────────────
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err.message, err.stack)
+  try { require('./src/logger').error('uncaughtException', err) } catch {}
+})
+
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason))
+  console.error('[FATAL] unhandledRejection:', err.message)
+  try { require('./src/logger').error('unhandledRejection', err) } catch {}
+})
+
 // Modules
 const ManifestManager = require('./src/manifest')
 const Downloader = require('./src/downloader')
@@ -52,12 +64,31 @@ function createWindow() {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  // F12 — открыть/закрыть DevTools для отладки
+  mainWindow.webContents.on('before-input-event', (_e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      mainWindow.webContents.isDevToolsOpened()
+        ? mainWindow.webContents.closeDevTools()
+        : mainWindow.webContents.openDevTools({ mode: 'detach' })
+    }
+  })
+
+  // Логируем все ошибки рендерера в файл
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    Logger.error('render-process-gone', new Error(JSON.stringify(details)))
+  })
+
+  mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    if (level >= 2) { // 2=warning, 3=error
+      Logger.session(`[RENDERER ${level === 3 ? 'ERR' : 'WARN'}] ${message} (${sourceId}:${line})`)
+    }
+  })
 }
 
 app.whenReady().then(() => {
-  // Инициализируем логгер сразу при запуске
   Logger.init(Settings.get('gamePath'))
-  Logger.session('CraftSync запущен')
+  Logger.session(`CraftSync запущен (platform=${process.platform}, electron=${process.versions.electron}, node=${process.versions.node})`)
   createWindow()
 })
 
