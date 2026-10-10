@@ -1,134 +1,55 @@
-# ⚡ CraftSync Launcher
+# Aurora
 
-Личный Minecraft лаунчер с синхронизацией модпаков через GitHub.
+A desktop Minecraft Java launcher for Windows, with a shared modpack workspace for friends.
 
----
+**Status: 0.2.0 preview.** This repository replaces the abandoned CraftSync implementation with Aurora. The repository address is retained; the previous implementation remains in Git history.
 
-## Быстрый старт
+![Aurora resource library](docs/assets/resources.png)
 
-### 1. Установить Node.js
-Скачай [Node.js LTS](https://nodejs.org/) и установи. Проверь:
-```bash
-node --version   # должно быть v18+
-npm --version
-```
+## What it does
 
-### 2. Установить зависимости
-Открой папку проекта в терминале (PowerShell или CMD):
-```bash
-cd путь\к\MinecraftModLauncher
-npm install
-```
+- Manage separate Minecraft instances with Vanilla, Fabric, Quilt, Forge and NeoForge.
+- Browse modpacks, mods, resource packs and shaders through Modrinth and the CurseForge integration.
+- Inspect resource cards with descriptions, provider badges and client/server categories; disable mods or set a category manually.
+- Install compatible resource versions and required dependencies, with checksums and file backups.
+- Share one modpack through a self-hosted HTTPS workspace, with a master password, UUID-based editor permissions and revision history.
+- Download the required Java runtime automatically. Packaged Windows builds include the desktop runtime.
 
-### 3. Запустить лаунчер
-```bash
+## Integration status
+
+**CurseForge access is not provisioned for Aurora yet.** Search and installation require a valid third-party platform API key. An author Upload API token is a different credential. The launcher reports unavailable downloads and does not circumvent authors' distribution restrictions. No Prism Launcher keys are included.
+
+**Microsoft sign-in requires an approved application Client ID.** The launcher implements Microsoft → Xbox Live → Minecraft Services authentication; an account owning Minecraft Java Edition is required. Live sign-in and game launch have not been validated with an Aurora application ID. There is no offline account bypass.
+
+Modrinth resource downloads have been tested live. CurseForge integration has been tested with controlled API responses, not a live Aurora key. See [validation](VALIDATION.md) for the exact scope.
+
+## Build and run
+
+On Windows x64, install Node.js 22 or newer, then:
+
+```powershell
+npm ci
+npm test
 npm start
+npm run dist
 ```
 
----
+The portable output is `dist/Aurora-0.2.0-Windows-x64.exe`. End users do not need Node.js or a separate Java installation. User data lives under `%APPDATA%/aurora-launcher`. The EXE is not digitally signed.
 
-## Настройка GitHub для сборок
+The **Windows build** GitHub Actions workflow can also produce an EXE artifact after a successful test run. No game files, mod binaries, API secrets or user profiles belong in this repository.
 
-### Шаг 1 — Создай репозиторий на GitHub
-Например: `github.com/ВАШ_НИК/mc-modpacks`
+## Documentation
 
-### Шаг 2 — Создай manifest.json
-Положи файл `manifest.json` в корень репозитория:
+- [Руководство на русском](documentation/USER_GUIDE_RU.md)
+- [Validation and current limitations](VALIDATION.md)
+- [Integration overview for API reviewers](documentation/INTEGRATIONS.md)
+- [Static project website](docs/index.html)
+- [GitHub Pages setup](documentation/PUBLISHING.md)
 
-```json
-{
-  "version": "1.0.0",
-  "updatedAt": "2024-01-01",
-  "modpacks": [
-    {
-      "id": "my-modpack",
-      "name": "Моя Сборка",
-      "version": "1.0.0",
-      "mcVersion": "1.20.1",
-      "loader": "forge",
-      "loaderVersion": "47.2.0",
-      "description": "Описание сборки",
-      "icon": "🏔️",
-      "bannerColor": "purple",
-      "featured": true,
-      "totalMods": 50,
-      "sizeMb": 1500,
-      "mods": [
-        {
-          "name": "JEI",
-          "filename": "jei-1.20.1-forge-15.2.0.27.jar",
-          "url": "https://github.com/ВАШ_НИК/mc-modpacks/releases/download/v1.0.0/jei.jar",
-          "sha256": "хэш_файла_необязательно",
-          "sizeMb": 2.4,
-          "required": true
-        }
-      ]
-    }
-  ]
-}
-```
+Minecraft Java 1.18+ is the intended scope. Installed files still need testing in game; arbitrary mod combinations are not guaranteed to be compatible. Internet sharing requires a reachable host and appropriate network configuration.
 
-### Шаг 3 — Загрузи моды через GitHub Releases
-1. Зайди в репозиторий → Releases → Create a new release
-2. Создай тег `v1.0.0`
-3. Прикрепи .jar файлы модов
-4. Ссылки на файлы вставь в manifest.json (поле `url`)
+## Contact and licensing
 
-### Шаг 4 — Укажи URL в лаунчере
-В лаунчере → Настройки → GitHub Манифест:
-```
-https://raw.githubusercontent.com/ВАШ_НИК/mc-modpacks/main/manifest.json
-```
+Maintainer: [ffxlino](https://github.com/ffxlino). Questions and bug reports: [repository issues](https://github.com/ffxlino/CraftSync/issues).
 
----
-
-## Структура проекта
-
-```
-MinecraftModLauncher/
-├── main.js              ← Electron главный процесс
-├── preload.js           ← Безопасный мост IPC
-├── package.json         ← Зависимости
-├── renderer/
-│   ├── index.html       ← UI (главный экран)
-│   ├── style.css        ← Стили
-│   └── renderer.js      ← Логика UI
-├── src/
-│   ├── settings.js      ← Хранение настроек
-│   ├── manifest.js      ← Получение списка сборок
-│   ├── downloader.js    ← Скачивание модов
-│   └── launcher.js      ← Запуск Minecraft
-└── assets/
-    └── icon.png         ← Иконка приложения
-```
-
----
-
-## Сборка в .exe (Windows)
-
-```bash
-npm run build
-```
-Готовый установщик появится в папке `dist/`.
-
----
-
-## Цвета банеров карточек (поле bannerColor)
-
-| Значение | Цвет        |
-|----------|-------------|
-| purple   | Фиолетовый  |
-| pink     | Розовый     |
-| blue     | Синий       |
-| teal     | Морской     |
-| dark     | Тёмный      |
-
----
-
-## Загрузчики (поле loader)
-
-- `forge` — Minecraft Forge
-- `fabric` — Fabric Loader
-- `quilt` — Quilt Loader
-- `neoforge` — NeoForge
-- `vanilla` — без загрузчика
+Aurora source code is licensed under [MIT](LICENSE). Third-party dependencies, Minecraft and mods retain their respective licenses. Aurora is independent and is not an official Minecraft product or affiliated with Mojang, Microsoft, CurseForge, Modrinth or Prism Launcher. This project does not bundle Prism source code or credentials.

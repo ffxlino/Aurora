@@ -1,129 +1,51 @@
 {
-  "name": "craftsync-launcher",
-  "version": "0.1.0",
-  "description": "Personal Minecraft Launcher with modpack sync via GitHub",
-  "main": "main.js",
+  "name": "aurora-launcher",
+  "version": "0.2.0",
+  "description": "Aurora — Minecraft launcher and private modpack hub",
+  "main": "src/main.js",
+  "author": "Aurora",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --x64",
-    "build:installer": "electron-builder --win --x64 --config.win.target=nsis",
-    "build:portable": "electron-builder --win --x64 --config.win.target=portable",
-    "build:linux": "electron-builder --linux --x64 --config.linux.target=zip",
-    "build:linux-full": "electron-builder --linux --x64",
-    "build:all-local": "powershell -ExecutionPolicy Bypass -File build-all.ps1"
-  },
-  "build": {
-    "appId": "com.craftsync.launcher",
-    "productName": "CraftSync",
-    "copyright": "Copyright 2024 Lino",
-    "directories": {
-      "output": "dist",
-      "buildResources": "assets"
-    },
-    "compression": "maximum",
-    "files": [
-      "main.js",
-      "preload.js",
-      "renderer/**/*",
-      "src/**/*",
-      "assets/**/*",
-      "package.json",
-      "node_modules/**/*",
-
-      "!node_modules/**/*.md",
-      "!node_modules/**/*.MD",
-      "!node_modules/**/README*",
-      "!node_modules/**/CHANGELOG*",
-      "!node_modules/**/HISTORY*",
-      "!node_modules/**/LICENSE*",
-      "!node_modules/**/LICENCE*",
-      "!node_modules/**/NOTICE*",
-
-      "!node_modules/**/test/**",
-      "!node_modules/**/tests/**",
-      "!node_modules/**/__tests__/**",
-      "!node_modules/**/*.test.js",
-      "!node_modules/**/*.spec.js",
-      "!node_modules/**/jest.config*",
-
-      "!node_modules/**/*.d.ts",
-      "!node_modules/**/*.map",
-
-      "!node_modules/**/docs/**",
-      "!node_modules/**/doc/**",
-      "!node_modules/**/examples/**",
-      "!node_modules/**/example/**",
-      "!node_modules/**/.github/**",
-      "!node_modules/**/.nyc_output/**",
-      "!node_modules/**/coverage/**"
-    ],
-    "win": {
-      "icon": "assets/icon.ico",
-      "signAndEditExecutable": false,
-      "sign": null,
-      "extraFiles": [],
-      "files": [
-        "!node_modules/7zip-bin/linux/**",
-        "!node_modules/7zip-bin/mac/**"
-      ],
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        },
-        {
-          "target": "portable",
-          "arch": ["x64"]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "CraftSync",
-      "runAfterFinish": true
-    },
-    "portable": {
-      "artifactName": "CraftSync-Portable-${version}.exe"
-    },
-    "linux": {
-      "icon": "assets/icon.png",
-      "category": "Game",
-      "files": [
-        "!node_modules/7zip-bin/win/**",
-        "!node_modules/7zip-bin/mac/**"
-      ],
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": ["x64"]
-        },
-        {
-          "target": "zip",
-          "arch": ["x64"]
-        }
-      ]
-    },
-    "appImage": {
-      "artifactName": "CraftSync-${version}.AppImage"
-    },
-    "publish": null
+    "test": "node --test test/*.test.js",
+    "dist": "electron-builder --win portable --x64"
   },
   "dependencies": {
-    "adm-zip": "^0.5.10",
-    "axios": "^1.6.0",
-    "electron-store": "^8.1.0",
-    "fs-extra": "^11.2.0",
-    "minecraft-launcher-core": "^3.5.3",
-    "node-7z": "^3.0.0",
-    "7zip-bin": "^5.2.0"
+    "adm-zip": "^0.6.1",
+    "selfsigned": "^5.5.0",
+    "smol-toml": "^1.9.1"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
   },
-  "author": "Lino",
-  "license": "MIT"
+  "build": {
+    "appId": "games.aurora.launcher",
+    "productName": "Aurora",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "README.md",
+      "LICENSE"
+    ],
+    "win": {
+      "target": "portable",
+      "artifactName": "Aurora-${version}-Windows-x64.exe",
+      "icon": "src/ui/icon.ico",
+      "signExecutable": false
+    },
+    "portable": {
+      "requestExecutionLevel": "user"
+    },
+    "extraResources": [
+      {
+        "from": "launcher.config.json",
+        "to": "launcher.config.json"
+      }
+    ]
+  }
 }
