@@ -1,0 +1,79 @@
+'use strict';
+const fs=require('node:fs/promises'),path=require('node:path'),https=require('node:https'),tls=require('node:tls'),crypto=require('node:crypto'),os=require('node:os');
+const selfsigned=require('selfsigned');
+const {atomic,readJson,hash,json,safePath,shareable,noLinks}=require('./util');
+const LIMIT=100*1024**2;
+function fail(status,message){const e=Error(message);e.status=status;throw e;}
+async function body(req,max=1024**2){const chunks=[];let n=0;for await(const c of req){n+=c.length;if(n>max)fail(413,'Слишком большой запрос');chunks.push(c);}return Buffer.concat(chunks);}
+function validateManifest(m){if(!m||typeof m.name!=='string'||m.name.length>80||!Array.isArray(m.files)||m.files.length>10000||!['vanilla','fabric','quilt','forge','neoforge'].includes(m.loader)||!/^[-\w.+]{1,80}$/.test(m.version)||typeof m.loaderVersion!=='string'||!/^[-\w.+]{0,80}$/.test(m.loaderVersion))fail(400,'Неверный манифест');const seen=new Set();for(const f of m.files){safePath(os.tmpdir(),f.path);if(!shareable(f.path)||!/^[a-f0-9]{64}$/.test(f.hash)||!Number.isSafeInteger(f.size)||f.size<0||f.size>LIMIT||seen.has(f.path.toLowerCase()))fail(400,'Недопустимый общий файл');seen.add(f.path.toLowerCase());}if(m.files.reduce((n,f)=>n+f.size,0)>2*1024**3)fail(413,'Сборка превышает 2 ГБ');return {name:m.name,version:m.version,loader:m.loader,loaderVersion:m.loaderVersion,files:m.files.map(f=>({path:f.path,hash:f.hash,size:f.size}))};}
+async function verifyMinecraft(token){if(typeof token!=='string'||token.length>10000)fail(401,'Неверный токен');const p=await json('https://api.minecraftservices.com/minecraft/profile',{headers:{Authorization:'Bearer '+token}});if(!/^[a-f0-9]{32}$/.test(p.id))fail(401,'Неверный профиль');return {id:p.id,name:p.name};}
+class HubServer {
+ constructor(root,verify=verifyMinecraft){this.root=path.join(root,'hub');this.verify=verify;this.sessions=new Map();this.rates=new Map();this.lock=Promise.resolve();}
+ async start({password,whitelist=[],port=25580}){
+  if(this.server)throw Error('Сервер уже запущен');if(typeof password!=='string'||password.length<12)throw Error('Мастер-пароль: минимум 12 символов');if(!Number.isInteger(port)||port<1024||port>65535)throw Error('Порт должен быть 1024–65535');if(whitelist.some(id=>!/^[a-f0-9]{32}$/i.test(id)))throw Error('Белый список: UUID игроков без дефисов');
+  await fs.mkdir(this.root,{recursive:true});const configFile=path.join(this.root,'credentials.json');let cred=await readJson(configFile,null);
+  if(cred){const supplied=crypto.scryptSync(password,cred.salt,32);if(!crypto.timingSafeEqual(supplied,Buffer.from(cred.key,'hex')))throw Error('Неверный мастер-пароль этого сервера');}else{const salt=crypto.randomBytes(16).toString('hex');cred={salt,key:crypto.scryptSync(password,salt,32).toString('hex')};await atomic(configFile,JSON.stringify(cred));}
+  this.cred=cred;this.whitelist=new Set(whitelist.map(s=>s.toLowerCase()));await atomic(path.join(this.root,'whitelist.json'),JSON.stringify([...this.whitelist]));
+  let cert=await readJson(path.join(this.root,'tls.json'),null);if(!cert){cert=await selfsigned.generate([{name:'commonName',value:'Aurora Private Hub'}],{notAfterDate:new Date(Date.now()+3650*86400000),keySize:2048,algorithm:'sha256'});await atomic(path.join(this.root,'tls.json'),JSON.stringify({private:cert.private,cert:cert.cert}));}
+  this.fingerprint=new crypto.X509Certificate(cert.cert).fingerprint256.replaceAll(':','').toLowerCase();
+  this.server=https.createServer({key:cert.private,cert:cert.cert,minVersion:'TLSv1.2'},(req,res)=>{this.route(req,res).catch(e=>{if(!res.headersSent){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:e.message}));}else res.destroy();});});
+  this.server.requestTimeout=120000;this.server.headersTimeout=15000;
+  try{await new Promise((resolve,reject)=>{this.server.once('error',reject);this.server.listen(port,'0.0.0.0',resolve);});}catch(e){this.server=null;throw e;}
+  const addresses=Object.values(os.networkInterfaces()).flat().filter(a=>a.family==='IPv4'&&!a.internal).map(a=>`https://${a.address}:${port}`);
+  this.info={port,fingerprint:this.fingerprint,urls:addresses.length?addresses:[`https://127.0.0.1:${port}`]};return this.info;
+ }
+ async stop(){if(this.server){this.server.closeAllConnections();await new Promise(r=>this.server.close(r));this.server=null;}this.sessions.clear();this.info=null;}
+ async state(){return readJson(path.join(this.root,'state.json'),{revision:0,manifest:null,history:[]});}
+ async route(req,res){
+  const url=new URL(req.url,'https://hub');const send=(data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+  if(url.pathname==='/session'&&req.method==='POST'){
+   const ip=req.socket.remoteAddress;const now=Date.now();let rate=this.rates.get(ip);if(!rate||rate.until<now){rate={n:0,until:now+60000};this.rates.set(ip,rate);}if(++rate.n>8)fail(429,'Слишком много попыток. Подождите минуту.');if(this.rates.size>1000)for(const [k,v]of this.rates)if(v.until<now)this.rates.delete(k);
+   const input=JSON.parse(await body(req,20000));let identity,role;
+   if(input.master){if(typeof input.master!=='string'||input.master.length>1024)fail(401,'Неверный пароль');const supplied=crypto.scryptSync(input.master,this.cred.salt,32);if(!crypto.timingSafeEqual(supplied,Buffer.from(this.cred.key,'hex')))fail(401,'Неверный мастер-пароль');identity={id:'owner',name:'Администратор'};role='admin';}
+   else{try{identity=await this.verify(input.minecraftToken);}catch{fail(401,'Не удалось подтвердить аккаунт Minecraft');}role=this.whitelist.has(identity.id)?'editor':'reader';}
+   for(const [key,value]of this.sessions)if(value.expires<Date.now())this.sessions.delete(key);if(this.sessions.size>=100)fail(503,'Слишком много сессий');const token=crypto.randomBytes(32).toString('hex');this.sessions.set(token,{...identity,role,expires:Date.now()+3600000});return send({token,identity,role,expires:Date.now()+3600000});
+  }
+  const session=this.sessions.get((req.headers.authorization||'').replace(/^Bearer /,''));if(!session||session.expires<Date.now())fail(401,'Войдите на сервер заново');
+  if(url.pathname==='/state'&&req.method==='GET')return send({...await this.state(),role:session.role});
+  if(url.pathname.startsWith('/blob/')){
+   const key=url.pathname.slice(6);if(!/^[a-f0-9]{64}$/.test(key))fail(400,'Неверная контрольная сумма');const target=path.join(this.root,'blobs',key);
+   if(req.method==='GET'){const state=await this.state();if(!state.manifest?.files.some(f=>f.hash===key))fail(404,'Файл не входит в сборку');const data=await fs.readFile(target);res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':data.length});return res.end(data);}
+   if(req.method==='PUT'){if(session.role==='reader')fail(403,'Нет прав изменения');const data=await body(req,LIMIT);if(hash(data)!==key)fail(400,'Контрольная сумма не совпадает');await atomic(target,data);return send({ok:true});}
+  }
+  if(url.pathname==='/publish'&&req.method==='POST'){
+   if(session.role==='reader')fail(403,'Нет прав изменения');const input=JSON.parse(await body(req,5*1024**2));const manifest=validateManifest(input.manifest);
+   const commit=async()=>{const prev=await this.state();if(input.revision!==prev.revision)fail(409,'Сборка изменилась у другого участника. Сначала синхронизируйте.');for(const f of manifest.files){const st=await fs.stat(path.join(this.root,'blobs',f.hash)).catch(()=>null);if(!st||st.size!==f.size)fail(400,'Файл ещё не загружен: '+f.path);}
+    const before=new Map((prev.manifest?.files||[]).map(f=>[f.path,f.hash]));const changes=[];for(const f of manifest.files){if(before.get(f.path)!==f.hash)changes.push({path:f.path,action:before.has(f.path)?'изменён':'добавлен'});before.delete(f.path);}for(const name of before.keys())changes.push({path:name,action:'удалён'});
+    const entry={id:crypto.randomUUID(),date:new Date().toISOString(),author:session.name,uuid:session.id,revision:prev.revision+1,changes};const next={revision:prev.revision+1,manifest,history:[entry,...prev.history].slice(0,1000)};await atomic(path.join(this.root,'state.json'),JSON.stringify(next));return {revision:next.revision,entry};};
+   const op=this.lock.then(commit);this.lock=op.catch(()=>{});return send(await op);
+  }
+  fail(404,'Маршрут не найден');
+ }
+}
+function hubRequest(base,fingerprint,route,{method='GET',token,data}={}){
+ const url=new URL(base);if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error('Адрес сервера: https://адрес:порт');
+ const pin=(fingerprint||'').replaceAll(':','').toLowerCase();if(pin&&!/^[a-f0-9]{64}$/.test(pin))throw Error('Отпечаток сертификата должен содержать 64 шестнадцатеричных символа');
+ const agent=new https.Agent({keepAlive:false});if(pin)agent.createConnection=(opts,callback)=>{const socket=tls.connect({...opts,rejectUnauthorized:false},()=>{const cert=socket.getPeerCertificate();const actual=cert.raw?hash(cert.raw):'';if(actual!==pin){socket.destroy();callback(Error('Отпечаток сертификата не совпадает. Проверьте адрес сервера.'));}else callback(null,socket);});socket.once('error',callback);};
+ return new Promise((resolve,reject)=>{const raw=Buffer.isBuffer(data)?data:data?Buffer.from(JSON.stringify(data)):null;const req=https.request(new URL(route,url),{method,agent,headers:{...(token?{Authorization:'Bearer '+token}:{}),...(raw?{'Content-Type':Buffer.isBuffer(data)?'application/octet-stream':'application/json','Content-Length':raw.length}:{})}},async res=>{try{const bytes=await body(res,LIMIT+1024);if(res.statusCode>=400){let msg;try{msg=JSON.parse(bytes).error;}catch{}const e=Error(msg||'Сервер: HTTP '+res.statusCode);e.status=res.statusCode;reject(e);}else resolve(route.startsWith('/blob/')&&method==='GET'?bytes:JSON.parse(bytes));}catch(e){reject(e);}finally{agent.destroy();}});req.setTimeout(120000,()=>req.destroy(Error('Сервер не отвечает')));req.on('error',reject);if(raw)req.write(raw);req.end();});
+}
+class HubClient {
+ constructor(packs,emit){this.packs=packs;this.emit=emit;this.connection=null;}
+ async connect({url,fingerprint,master,minecraftToken}){const session=await hubRequest(url,fingerprint,'/session',{method:'POST',data:{master,minecraftToken}});this.connection={url,fingerprint,...session};return {role:session.role,identity:session.identity,...await this.state()};}
+ request(route,options={}){if(!this.connection)throw Error('Подключитесь к серверу сборки');return hubRequest(this.connection.url,this.connection.fingerprint,route,{...options,token:this.connection.token});}
+ state(){return this.request('/state');}
+ async publish(id,revision){const local=await this.packs.get(id);const remote=await this.state();if(remote.manifest&&(!local.remote||local.remote.url!==this.connection.url))throw Error('На сервере уже есть сборка. Сначала скачайте её отдельно, затем редактируйте и публикуйте.');if(local.remote&&local.remote.revision!==revision)throw Error('Сначала синхронизируйте сборку');const manifest=await this.packs.snapshot(id);let done=0;for(const f of manifest.files){const file=safePath(this.packs.dir(id),f.path);await noLinks(this.packs.dir(id),file);await this.request('/blob/'+f.hash,{method:'PUT',data:await fs.readFile(file)});this.emit('progress',{label:'Публикация файлов',current:++done,total:manifest.files.length});}const result=await this.request('/publish',{method:'POST',data:{revision,manifest}});const pack=await this.packs.get(id);pack.remote={url:this.connection.url,revision:result.revision,files:manifest.files};await this.packs.save(pack);return result;}
+ async pull(id,acceptConflicts=false){const state=await this.state();if(!state.manifest)throw Error('На сервере пока нет сборки');const manifest=validateManifest(state.manifest);let p=id?await this.packs.get(id):null;
+  if(p&&(!p.remote||p.remote.url!==this.connection.url))throw Error('Эта локальная сборка не связана с сервером. Скачайте общую сборку отдельно.');
+  if(!p)p=await this.packs.create(manifest);
+  const dir=this.packs.dir(p.id);const baseline=new Map((p.remote?.files||[]).map(f=>[f.path,f.hash]));const incoming=new Map(manifest.files.map(f=>[f.path,f]));const conflicts=[];const writes=[],deletes=[];
+  for(const f of manifest.files){const target=safePath(dir,f.path);await noLinks(dir,target);const data=await fs.readFile(target).catch(e=>{if(e.code==='ENOENT')return null;throw e;});const current=data?hash(data):null;if(current===f.hash)continue;if(current&&current!==baseline.get(f.path))conflicts.push(f.path);writes.push(f);}
+  for(const [name,previous]of baseline){if(incoming.has(name))continue;const file=safePath(dir,name);await noLinks(dir,file);const data=await fs.readFile(file).catch(e=>{if(e.code==='ENOENT')return null;throw e;});if(data){if(hash(data)!==previous)conflicts.push(name);deletes.push(name);}}
+  if(conflicts.length&&!acceptConflicts)return {conflicts,id:p.id};
+  const stage=path.join(this.packs.root,'staging',crypto.randomUUID());await fs.mkdir(stage,{recursive:true});
+  try{for(const f of writes){const bytes=await this.request('/blob/'+f.hash);if(hash(bytes)!==f.hash||bytes.length!==f.size)throw Error('Повреждённый файл '+f.path);await atomic(safePath(stage,f.path),bytes);}const changed=[...writes.map(f=>f.path),...deletes];await this.packs.backup(p.id,changed);
+   for(const f of writes){const target=safePath(dir,f.path);await noLinks(dir,target);await atomic(target,await fs.readFile(safePath(stage,f.path)));}for(const name of deletes){const target=safePath(dir,name);await noLinks(dir,target);await fs.rm(target,{force:true});}
+   p={...p,name:manifest.name,version:manifest.version,loader:manifest.loader,loaderVersion:manifest.loaderVersion,remote:{url:this.connection.url,revision:state.revision,files:manifest.files}};await this.packs.save(p);await this.packs.log(p.id,'Синхронизация: ревизия '+state.revision,changed,'Сервер');return {pack:p,revision:state.revision,conflicts:[]};
+  }finally{await fs.rm(stage,{recursive:true,force:true});}
+ }
+}
+module.exports={HubServer,HubClient,hubRequest,validateManifest};
