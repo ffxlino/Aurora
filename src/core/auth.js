@@ -18,13 +18,14 @@ class Accounts {
   async login(clientId){
     if(this.pending)throw Error('Вход уже выполняется');if(!/^[a-f0-9-]{36}$/i.test(clientId))throw Error('Укажите Client ID приложения Microsoft в настройках');
     this.pending=true;const generation=this.generation=Symbol();
-    try{const r=await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode',{method:'POST',body:new URLSearchParams({client_id:clientId,scope:'XboxLive.signin offline_access'}),signal:AbortSignal.timeout(30000)});const d=await r.json();if(!r.ok)throw Error(d.error_description||'Microsoft отклонил запрос');
+    try{const r=await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode',{method:'POST',body:new URLSearchParams({client_id:clientId,scope:'XboxLive.signin offline_access'}),signal:AbortSignal.timeout(30000)});const d=await r.json();if(generation!==this.generation)throw Error('Вход отменён');if(!r.ok)throw Error(['AADSTS70002','AADSTS7000218'].some(code=>d.error_description?.includes(code))?'Для приложения Aurora не включён вход общедоступных клиентов. Владелец должен включить Allow public client flows в Microsoft Entra.':d.error_description||'Microsoft отклонил запрос');
       this.emit('device',{code:d.user_code,url:d.verification_uri,expires:d.expires_in});let interval=d.interval||5;const until=Date.now()+d.expires_in*1000;
       while(Date.now()<until && generation===this.generation){await new Promise(r=>setTimeout(r,interval*1000));if(generation!==this.generation)break;try{const ms=await this.oauth({grant_type:'urn:ietf:params:oauth:grant-type:device_code',client_id:clientId,device_code:d.device_code});if(generation!==this.generation)break;return await this.exchange(ms,generation);}catch(e){if(e.code==='authorization_pending')continue;if(e.code==='slow_down'){interval+=5;continue;}throw e;}}
       throw Error('Вход отменён или время ожидания истекло');
     }finally{this.pending=false;this.emit('device',null);}
   }
   async token(clientId){if(!this.current)throw Error('Сначала войдите в Microsoft');if(this.current.expires<Date.now()+120000){const ms=await this.oauth({client_id:clientId,grant_type:'refresh_token',refresh_token:this.current.refresh,scope:'XboxLive.signin offline_access'});await this.exchange(ms);}return this.current;}
+  cancel(){this.generation=null;this.emit('device',null);}
   async logout(){this.generation=null;this.current=null;await fs.rm(this.file,{force:true});this.emit('account',null);}
 }
 module.exports={Accounts};

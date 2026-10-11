@@ -1,6 +1,6 @@
 # API integration overview
 
-Aurora is a Windows desktop launcher for Minecraft Java Edition, maintained by GitHub user ffxlino. Its source is in the CraftSync repository, which is being repurposed from an older project. The current application is an Electron desktop app; the website is a static project introduction.
+Aurora is a Windows desktop launcher for Minecraft Java Edition, maintained by GitHub user ffxlino. Its source is in the Aurora repository, renamed from CraftSync. The current application is an Electron desktop app; the website is a static project introduction.
 
 ## Intended CurseForge usage
 
@@ -19,7 +19,7 @@ Downloads with no available URL are rejected with an explanatory error. The appl
 
 Modrinth: public project search, versions, required dependencies, file hash recognition and mrpack import. Real resource downloads have been verified.
 
-Microsoft: device-code sign-in followed by Xbox Live and Minecraft Services. An approved application registration and a licensed account are required. Live authorization remains unverified pending an appropriate Client ID.
+Microsoft: device-code sign-in followed by Xbox Live and Minecraft Services. The owner’s application Client ID is bundled. Public client flows must be enabled in Entra, and a licensed account is required. Live authorization remains unverified.
 
 ## Data and hosting
 
@@ -27,4 +27,4 @@ Settings and instances are local. Sensitive stored credentials use Electron safe
 
 The static website has no login, advertising, analytics, payment system or API key input. Screenshots use a test instance and are illustrative of the actual application UI.
 
-Contact: https://github.com/ffxlino/CraftSync/issues
+Contact: https://github.com/ffxlino/Aurora/issues

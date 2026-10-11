@@ -4,24 +4,23 @@
 
 ## Запуск готового приложения
 
-Откройте `dist/Aurora-0.2.0-Windows-x64.exe`. Установка Node.js, Java или .NET пользователям не нужна. Лаунчер сам скачивает подходящую Java. При первом запуске игры требуется интернет и свободное место под Minecraft, моды и ресурсы. EXE переносимый; пользовательские данные сохраняются в `%APPDATA%/aurora-launcher`, а не внутри EXE.
+Откройте `dist/Aurora-0.2.1-Windows-x64.exe`. Установка Node.js, Java или .NET пользователям не нужна. Лаунчер сам скачивает подходящую Java. При первом запуске игры требуется интернет и свободное место под Minecraft, моды и ресурсы. EXE переносимый; пользовательские данные сохраняются в `%APPDATA%/aurora-launcher`, а не внутри EXE.
 
-1. В настройках укажите Microsoft Application (Client) ID, если владелец ещё не встроил его в дистрибутив.
-2. Нажмите «Войти в Microsoft». Введите показанный код на открывшейся официальной странице Microsoft. Нужен аккаунт с Minecraft Java Edition.
-3. Создайте сборку, импортируйте `.mrpack` / ZIP CurseForge или установите сборку из каталога Modrinth / CurseForge.
-4. Выберите сборку и нажмите «Играть». Кнопка «Проверить / установить» позволяет заранее загрузить игру без входа.
+1. Нажмите «Войти в Microsoft». Введите показанный код на открывшейся официальной странице Microsoft. Нужен аккаунт с Minecraft Java Edition.
+2. Создайте сборку, импортируйте `.mrpack` / ZIP CurseForge или установите сборку из каталога Modrinth / CurseForge.
+3. Выберите сборку и нажмите «Играть». Кнопка «Проверить / установить» позволяет заранее загрузить игру без входа.
 
 Старые отдельные Mojang-аккаунты не используются: авторизация реализована через Microsoft → Xbox Live → Minecraft Services. Пароль Microsoft лаунчер не запрашивает. Refresh token зашифрован средствами Windows через Electron safeStorage.
 
 ## Настройка входа Microsoft — один раз для владельца
 
-**Без собственного Client ID рабочий вход проверить и использовать нельзя.** В проект не включены чужие ключи или секреты. Client ID — публичный идентификатор, это не Client Secret.
+Client ID Aurora включён в launcher.config.json. Игроки нажимают «Войти в Microsoft» и не вводят идентификатор вручную. Для работы Device Code Flow владелец должен включить Allow public client flows в Microsoft Entra. Ниже — настройки для владельца или собственной производной сборки. Client ID — публичный идентификатор, это не Client Secret.
 
 1. В Microsoft Entra создайте регистрацию приложения с поддержкой личных Microsoft accounts (Personal Microsoft accounts; либо accounts in any organization + personal accounts).
 2. В разделе Authentication включите **Allow public client flows** для Device Code Flow. Используется endpoint `consumers` и scope `XboxLive.signin offline_access`; Client Secret не нужен.
 3. Проверьте, разрешён ли вашему приложению доступ к Minecraft Services. Для новых сторонних лаунчеров Microsoft/Mojang может требовать отдельного одобрения. Успешного Xbox-входа недостаточно, если Minecraft API не допускает приложение.
-4. Скопируйте Application (Client) ID в настройки Aurora.
-5. Для распространения среди друзей впишите его в `launcher.config.json` → `microsoftClientId` и повторно соберите EXE. Тогда друзьям не нужно вводить ID.
+4. Скопируйте Application (Client) ID в launcher.config.json → microsoftClientId.
+5. Повторно соберите EXE. Игрокам не нужно вводить ID. Пустой ID из настроек предыдущей версии обновляется автоматически; сохранение настроек памяти не сбрасывает встроенный ID.
 
 Официальные справочные страницы:
 - https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code
@@ -81,7 +80,7 @@ npm start
 npm run dist
 ```
 
-Готовый файл: `dist/Aurora-0.2.0-Windows-x64.exe`. Java и игровые файлы скачиваются при первом использовании и не включены в EXE. Сборка упаковывает собственный runtime Electron. Каталоги `artifacts`, `test` и тестовые аккаунты не входят в дистрибутив.
+Готовый файл: `dist/Aurora-0.2.1-Windows-x64.exe`. Java и игровые файлы скачиваются при первом использовании и не включены в EXE. Сборка упаковывает собственный runtime Electron. Каталоги `artifacts`, `test` и тестовые аккаунты не входят в дистрибутив.
 
 ## Проверки
 
