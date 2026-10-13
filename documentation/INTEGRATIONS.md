@@ -28,3 +28,5 @@ Settings and instances are local. Sensitive stored credentials use Electron safe
 The static website has no login, advertising, analytics, payment system or API key input. Screenshots use a test instance and are illustrative of the actual application UI.
 
 Contact: https://github.com/ffxlino/Aurora/issues
+
+Cloudflare-to-Minecraft profile verification currently receives HTTP 403. Editor invitations work independently; desktop Minecraft sign-in and direct launch have been verified. No unverified UUID is accepted as proof of identity.
