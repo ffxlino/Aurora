@@ -11,3 +11,5 @@ publication/
 *.bin
 *.pem
 *.key
+.wrangler/
+.dev.vars

@@ -1,0 +1,20 @@
+name = "aurora-private-hub"
+main = "worker.mjs"
+compatibility_date = "2026-10-13"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+MICROSOFT_APPROVED = "false"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "HubIndex"
+
+[[durable_objects.bindings]]
+name = "BLOBS"
+class_name = "FileBlob"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["HubIndex", "FileBlob"]

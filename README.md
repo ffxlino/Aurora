@@ -1,15 +1,46 @@
-# Aurora — Minecraft launcher
+# Aurora 0.4.0
 
-Aurora 0.3.0 manages Minecraft Java modpacks and resources on Windows and Linux x64.
+Десктопный менеджер сборок Minecraft Java 1.18 и новее для Windows и Linux x64.
 
-While Mojang and CurseForge application approvals are pending, this release uses **Modrinth only** and hands prepared game installations to the **official Minecraft Launcher**. Players authenticate in that launcher; Aurora does not import its credentials. Select the generated "Aurora · pack name" profile and press Play there. Direct account login in Aurora and CurseForge downloads/imports are temporarily disabled. Existing pack files remain usable.
+## Текущий режим
 
-Windows portable EXE, Linux AppImage and Arch pacman packages are built in GitHub Actions. The official Minecraft Launcher is a separate prerequisite. Java is provisioned automatically for each platform. The Linux build and interface are tested on Ubuntu CI; specific Arch/Wayland environments still need testing on real devices.
+Пока заявки Mojang и CurseForge рассматриваются, каталог работает только с Modrinth. Установленные ранее файлы CurseForge остаются в сборках, но поиск, загрузка и импорт CurseForge отключены.
 
-Features include isolated instances, Modrinth catalogs with dependency resolution, installed resource cards, client/server categorization, local file import, .mrpack import/export, archive preservation, backups and change history, launcher path selection, alphabetical/newest sorting and access to the actual game log.
+Авторизация и запуск выполняются через установленный официальный Minecraft Launcher. Aurora не читает и не переносит его токены. Прямой вход Microsoft в Aurora временно отключён.
 
-The built-in shared-pack HTTPS server runs only while Aurora is open. In the temporary mode, administrator access uses the master password; Minecraft-based participant authorization awaits direct API access. This is a pack file server, not a hosted service or Minecraft game server.
+1. Установите официальный Minecraft Launcher с https://www.minecraft.net/download. Для Arch доступен пакет minecraft-launcher в AUR; это отдельная установка.
+2. Запустите Aurora. Если официальный лаунчер не найден, откройте настройки и выберите его исполняемый файл (Windows: MinecraftLauncher.exe / Minecraft.exe; Arch: /usr/bin/minecraft-launcher).
+3. Создайте сборку или установите Modrinth-модпак. Нажмите «Играть». При первом запуске Aurora установит Java, Minecraft и загрузчик.
+4. В официальном лаунчере откройте Java Edition, войдите в Microsoft и выберите профиль «Aurora · название сборки». Нажмите «Играть» там. Вход сохранится в официальном лаунчере для следующих запусков.
 
-See [Russian user guide](documentation/USER_GUIDE_RU.md). Build with `npm ci`, `npm test`, `npm run dist` on Windows or `npm run dist:linux` on Linux. `npm run verify:engine` downloads and verifies a real Java/Fabric installation and generates an official launcher profile.
+Если профиль не появился, полностью закройте официальный лаунчер и повторите запуск из Aurora. Профили находятся в отдельной папке Aurora/engine; ваши обычные профили .minecraft не изменяются. Сборки сохраняют свои существующие папки game, моды и миры. Не изменяйте сборку, пока запущен Minecraft. Aurora не отслеживает и не останавливает игру, запущенную официальным лаунчером. Передача в лаунчер не означает, что сама игра уже работает.
 
-Website: https://ffxlino.github.io/Aurora/
+## Linux / Arch
+
+Aurora-0.4.0-Linux-x86_64.AppImage: разрешите выполнение файла в свойствах и откройте его. На системах без FUSE 2 можно использовать стандартный режим извлечения AppImage (--appimage-extract-and-run) либо установить пакет pacman.
+
+Aurora-0.4.0-Linux-x64.pacman: установите через `sudo pacman -U ./Aurora-0.4.0-Linux-x64.pacman`. Затем запустите Aurora из меню приложений. Пакет объявляет зависимости GTK, NSS, звука и графики; pacman установит их. Поддерживается x86_64, не ARM. Проверка Linux выполняется в Ubuntu CI; работа именно в вашем окружении Arch/Wayland требует проверки на устройстве.
+
+Java устанавливается автоматически: Windows ZIP / Linux tar.gz. Учётные данные Microsoft при временном режиме хранит официальный лаунчер.
+
+## Возможности
+
+Каталог Modrinth: сборки, моды, ресурспаки и шейдеры; фильтр по версии и загрузчику; обязательные зависимости. Карточки установленных ресурсов с источником, описанием, средой клиент/сервер/оба и переключателем модов. Импорт и экспорт .mrpack. Добавление локальных файлов, переименование, архивирование с сохранением миров, сортировка по имени и дате создания. История изменений и резервные копии. Кнопка открытия настоящего latest.log из папки сборки.
+
+Новые возможности 0.4: резервные копии с необязательным сохранением миров и проверкой целостности перед восстановлением; массовое обновление ресурсов Modrinth с копией перед изменением; диагностика типичных сбоев и экспорт очищенного отчёта; отдельная память, Java и размер окна для каждой сборки; избранное, теги и свои обложки; очередь загрузок с паузой и продолжением; выбор совместимой версии загрузчика; возврат сборки из архива.
+
+Встроенный HTTPS сервер общих файлов работает, пока Aurora открыта. Приглашения участников и роли «Читатель» / «Редактор» сохраняются, отзыв приглашения отключает текущую сессию. Имена приглашений задаёт владелец: они не подтверждают личность Microsoft. Проверка UUID Minecraft предусмотрена после одобрения прямой авторизации. Миры и данные аккаунтов не публикуются.
+
+## Постоянный сервер
+
+Код сервера Cloudflare находится в `cloud/`. Размещение ещё требует завершения OAuth владельцем и проверки его тарифа Workers Free. После размещения сервер доступен независимо от открытого приложения. Это хранилище и синхронизация сборки, а не игровой сервер Minecraft.
+
+Используется Workers Free с SQLite Durable Objects, без R2 и платного тарифа. Приложение ограничивает сборку 4 000 000 000 байт, отдельный файл — 512 МиБ, опубликованные и подготовленные файлы вместе — 4 500 000 000 байт. Бесплатные 5 ГБ хранилища распространяются на весь аккаунт, включая другие проекты. При обновлении нужно место для изменённых файлов; большие обновления сборки около 4 ГБ могут не поместиться. Ненужные прежние файлы удаляются после публикации, незавершённые загрузки — через сутки. Перед крупными изменениями сохраните локальную копию.
+
+На Workers Free превышение квот останавливает соответствующие операции, дневные лимиты сбрасываются в 00:00 UTC: https://developers.cloudflare.com/durable-objects/platform/pricing/ . Не подключайте Workers Paid или R2, если требуются отсутствие карты и списаний. Мастер-пароль сервера хранится как секрет Cloudflare и в зашифрованном локальном хранилище владельца, не в исходниках или раздаваемом приложении. Друзья входят по приглашению.
+
+## Разработка
+
+`npm ci`, `npm test`, `npm start`.
+Windows: `npm run dist`. Linux: `npm run dist:linux` на Linux.
+Реальная проверка установки Fabric, Java и профиля официального лаунчера: `npm run verify:engine` (загружает игровые файлы).

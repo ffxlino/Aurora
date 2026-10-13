@@ -1,0 +1,15 @@
+{
+  "name": "aurora-free-hub",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test.mjs"
+  },
+  "devDependencies": {
+    "@napi-rs/keyring": "^1.3.0",
+    "wrangler": "^4.0.0"
+  }
+}
