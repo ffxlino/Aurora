@@ -9,7 +9,8 @@ module.exports=async function(win,app){
   const p=await window.aurora.call('pack:create',{name:'Тестовая сборка',version:'1.21.1',loader:'fabric',loaderVersion:'0.19.5'});
   await wait(()=>document.querySelector('[data-select="'+p.id+'"]'));document.querySelector('[data-select="'+p.id+'"]').click();await wait(()=>document.querySelector('#resource-panel .resource-types'));
   const details=!!document.querySelector('#play-btn');const officialMode=before.settings.launchMode==='official'&&!!document.querySelector('#official-path')&&document.querySelector('#catalog-source').options.length===1&&document.querySelector('#catalog-source').value==='modrinth';const views=[];
-  for(const page of ['catalog','community','activity','settings','library']){document.querySelector('[data-page="'+page+'"]').click();views.push({page,visible:document.querySelector('#page-'+page).classList.contains('active'),overflow:document.documentElement.scrollWidth>innerWidth});}
+  for(const page of ['catalog','community','activity','settings','downloads','library']){document.querySelector('[data-page="'+page+'"]').click();views.push({page,visible:document.querySelector('#page-'+page).classList.contains('active'),overflow:document.documentElement.scrollWidth>innerWidth});}
+  await window.aurora.call('pack:configure',p.id,{memory:6144,width:1920,height:1080});await window.aurora.call('pack:decorate',p.id,{favorite:true,tags:['Friends']});await openFeature('settings');const perPackSettings=document.querySelector('#pack-settings-form').elements.memory.value==='6144';document.querySelector('#pack-settings-dialog').close();await window.aurora.call('backups:create',p.id,{worlds:true,label:'UI snapshot'});await openFeature('backups');const backupControls=!!document.querySelector('[data-restore-backup]');document.querySelector('#backup-dialog').close();await openFeature('decorate');const decoration=document.querySelector('#decorate-form').elements.favorite.checked&&document.querySelector('#decorate-form').elements.tags.value==='Friends';document.querySelector('#decorate-dialog').close();await openFeature('reports');const diagnosticControls=!!document.querySelector('#export-report');document.querySelector('#reports-dialog').close();
   let response=uiConfirm('Проверка отмены',{title:'Встроенное подтверждение'});document.querySelector('#confirm-cancel').click();const canceled=await response===false;
   response=uiConfirm('Проверка подтверждения');document.querySelector('#confirm-accept').click();const accepted=await response===true;
   await window.aurora.call('pack:archive',p.id);
@@ -22,7 +23,7 @@ module.exports=async function(win,app){
    inventory={cards:count,sourceBadges:document.querySelectorAll('.installed-card .source-pill.modrinth').length,toggle:true,manualSide:true,overflow:document.documentElement.scrollWidth>innerWidth};
   }
   const host=await window.aurora.call('hub:host',{password:'smoke-check-master-password',port,whitelist:[]});const connected=await window.aurora.call('hub:connect',{url:'https://127.0.0.1:'+port,fingerprint:host.fingerprint,master:'smoke-check-master-password'});
-  return {title:document.title,microsoftConfigured,details,officialMode,views,bridge:typeof window.require==='undefined',confirm:{canceled,accepted},inventory,hub:connected.role};
+  return {title:document.title,microsoftConfigured,details,officialMode,perPackSettings,backupControls,decoration,diagnosticControls,views,bridge:typeof window.require==='undefined',confirm:{canceled,accepted},inventory,hub:connected.role};
  };
  const report=await win.webContents.executeJavaScript('('+check.toString()+')('+port+')');
  await win.webContents.executeJavaScript("document.querySelector('#resource-panel')?.scrollIntoView({behavior:'instant',block:'start'})");await new Promise(r=>setTimeout(r,300));
@@ -36,6 +37,6 @@ module.exports=async function(win,app){
  report.closeCanceled=!win.isDestroyed();
  await win.webContents.executeJavaScript("window.aurora.call('hub:stop')");
  await fs.writeFile(path.join(out,'smoke.json'),JSON.stringify(report,null,2));
- if(!report.officialMode||!report.microsoftConfigured||report.hub!=='admin'||!report.details||!report.bridge||!report.confirm.canceled||!report.confirm.accepted||!report.closeConfirmation||!report.closeCanceled||report.views.some(v=>!v.visible||v.overflow)||report.inventory?.overflow)throw Error('Проверка интерфейса не пройдена');
+ if(!report.perPackSettings||!report.backupControls||!report.decoration||!report.diagnosticControls||!report.officialMode||!report.microsoftConfigured||report.hub!=='admin'||!report.details||!report.bridge||!report.confirm.canceled||!report.confirm.accepted||!report.closeConfirmation||!report.closeCanceled||report.views.some(v=>!v.visible||v.overflow)||report.inventory?.overflow)throw Error('Проверка интерфейса не пройдена');
  app.quit();
 };

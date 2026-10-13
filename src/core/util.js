@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const AdmZip = require('adm-zip');
-const AGENT = 'AuroraLauncher/0.3.0';
+const AGENT = 'AuroraLauncher/0.4.0';
 function safePath(root, name) {
   if (typeof name !== 'string' || !name || name.length > 500 || /[\\:\x00-\x1f]/.test(name) || name.startsWith('/')) throw Error('Недопустимый путь файла');
   const parts = name.split('/');
@@ -44,7 +44,9 @@ async function request(url, options={}) {
   throw Error('Слишком много перенаправлений');
 }
 async function json(url, options) { return (await request(url,options)).json(); }
+let managedDownloads=null;function setDownloads(manager){managedDownloads=manager;}
 async function download(url, file, expected, algorithm='sha1', progress=()=>{}) {
+  if(managedDownloads)return managedDownloads.download(url,file,expected,algorithm,progress);
   if(expected) { try { if(hash(await fs.readFile(file),algorithm)===expected.toLowerCase()) return; } catch(e){if(e.code!=='ENOENT') throw e;} }
   const r=await request(url); const total=Number(r.headers.get('content-length'))||0;
   if(total>2*1024**3) throw Error('Файл слишком большой');
@@ -74,4 +76,4 @@ async function files(root, prefix='') {
   }return out;
 }
 function shareable(name) { return /^(mods|config|resourcepacks|shaderpacks|defaultconfigs|kubejs)\//.test(name) && !/\.(exe|dll|bat|cmd|ps1|vbs|lnk|com|scr)$/i.test(name); }
-module.exports={safePath,noLinks,atomic,readJson,hash,approvedURL,request,json,download,extract,files,shareable};
+module.exports={setDownloads,safePath,noLinks,atomic,readJson,hash,approvedURL,request,json,download,extract,files,shareable};

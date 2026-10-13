@@ -38,8 +38,8 @@ class Minecraft {
     const java=await this.java(vanilla.javaVersion?.majorVersion||17);let profile=vanilla;
     if(instance.loader==='fabric'||instance.loader==='quilt'){
       const host=instance.loader==='fabric'?'https://meta.fabricmc.net':'https://meta.quiltmc.org';
-      let loader=instance.loaderVersion;if(!loader){const list=await json(`${host}/v2/versions/loader/${encodeURIComponent(instance.version)}`);loader=(list.find(v=>v.loader.stable)||list[0])?.loader.version;if(!loader)throw Error('Нет загрузчика для выбранной версии');}instance.loaderVersion=loader;
-      const mod=await json(`${host}/v2/versions/loader/${encodeURIComponent(instance.version)}/${encodeURIComponent(loader)}/profile/json`);
+      let loader=instance.loaderVersion;if(!loader){const list=await json(`${host}/${instance.loader==='quilt'?'v3':'v2'}/versions/loader/${encodeURIComponent(instance.version)}`);loader=(list.find(v=>v.loader.stable)||list[0])?.loader.version;if(!loader)throw Error('Нет загрузчика для выбранной версии');}instance.loaderVersion=loader;
+      const mod=await json(`${host}/${instance.loader==='quilt'?'v3':'v2'}/versions/loader/${encodeURIComponent(instance.version)}/${encodeURIComponent(loader)}/profile/json`);
       profile={...vanilla,...mod,downloads:vanilla.downloads,assetIndex:vanilla.assetIndex,assets:vanilla.assets,arguments:{game:[...vanilla.arguments.game,...(mod.arguments?.game||[])],jvm:[...vanilla.arguments.jvm,...(mod.arguments?.jvm||[])]},libraries:[...vanilla.libraries,...mod.libraries]};
      }else if(['forge','neoforge'].includes(instance.loader)){
       const mod=await this.installForge(instance,vanilla,java);
@@ -61,9 +61,9 @@ class Minecraft {
     return {profile,java,natives,classpath};
   }
   async launch(instance,account,settings){
-    if(this.process)throw Error('Minecraft уже запущен');const {profile,java,natives,classpath}=await this.install(instance);if(typeof account==='function')account=await account();const dir=path.join(this.root,'instances',instance.id,'game');await fs.mkdir(dir,{recursive:true});
-    const vars={auth_player_name:account.name,version_name:profile.id,game_directory:dir,assets_root:path.join(this.game,'assets'),assets_index_name:profile.assetIndex.id,auth_uuid:account.id,auth_access_token:account.token,clientid:settings.clientId,auth_xuid:'',user_type:'msa',version_type:'release',natives_directory:natives,launcher_name:'Aurora',launcher_version:'0.3.0',classpath:classpath.join(path.delimiter),classpath_separator:path.delimiter,library_directory:path.join(this.game,'libraries'),user_properties:'{}',resolution_width:'1280',resolution_height:'800'};
-    const args=[`-Xmx${settings.memory}M`,'-Xms512M',...argumentsFor(profile.arguments.jvm,vars),profile.mainClass,...argumentsFor(profile.arguments.game,vars)];
+    if(this.process)throw Error('Minecraft уже запущен');const {profile,java:automaticJava,natives,classpath}=await this.install(instance);const java=instance.launchSettings?.javaPath||automaticJava;if(typeof account==='function')account=await account();const dir=path.join(this.root,'instances',instance.id,'game');await fs.mkdir(dir,{recursive:true});
+    const vars={auth_player_name:account.name,version_name:profile.id,game_directory:dir,assets_root:path.join(this.game,'assets'),assets_index_name:profile.assetIndex.id,auth_uuid:account.id,auth_access_token:account.token,clientid:settings.clientId,auth_xuid:'',user_type:'msa',version_type:'release',natives_directory:natives,launcher_name:'Aurora',launcher_version:'0.4.0',classpath:classpath.join(path.delimiter),classpath_separator:path.delimiter,library_directory:path.join(this.game,'libraries'),user_properties:'{}',resolution_width:String(instance.launchSettings?.width||1280),resolution_height:String(instance.launchSettings?.height||800)};
+    const args=[`-Xmx${instance.launchSettings?.memory||settings.memory}M`,'-Xms512M',...argumentsFor(profile.arguments.jvm,vars),profile.mainClass,...argumentsFor(profile.arguments.game,vars)];
     const argsFile=path.join(this.root,'instances',instance.id,'launch.args');await atomic(argsFile,args.map(a=>'"'+String(a).replaceAll('\\','\\\\').replaceAll('"','\\"')+'"').join('\n'));
     this.progress('Запуск игры');const child=spawn(java,['@'+argsFile],{cwd:dir,windowsHide:true,stdio:['ignore','pipe','pipe']});this.process=child;
     const clean=s=>String(s).replaceAll(account.token,'[token]').replace(/Bearer\s+\S+/gi,'Bearer [hidden]');
