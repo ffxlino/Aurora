@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const AdmZip = require('adm-zip');
-const AGENT = 'AuroraLauncher/0.5.0';
+const AGENT = 'AuroraLauncher/0.6.0';
 function safePath(root, name) {
   if (typeof name !== 'string' || !name || name.length > 500 || /[\\:\x00-\x1f]/.test(name) || name.startsWith('/')) throw Error('Недопустимый путь файла');
   const parts = name.split('/');
@@ -20,11 +20,9 @@ async function noLinks(root, target) {
     if (st?.isSymbolicLink()) throw Error('Ссылки на внешние файлы запрещены');
   }
 }
-async function atomic(file, data) {
-  await fs.mkdir(path.dirname(file), {recursive:true});
-  const temp = file + '.' + crypto.randomUUID() + '.tmp';
-  try { await fs.writeFile(temp, data); await fs.rename(temp, file); } finally { await fs.rm(temp,{force:true}).catch(()=>{}); }
-}
+const atomicWrites=new Map();
+async function atomic(file,data){const key=path.resolve(file),prior=atomicWrites.get(key)||Promise.resolve();const write=prior.catch(()=>{}).then(async()=>{await fs.mkdir(path.dirname(file),{recursive:true});const temp=file+'.'+crypto.randomUUID()+'.tmp';try{await fs.writeFile(temp,data);for(let attempt=0;;attempt++){try{await fs.rename(temp,file);break;}catch(e){if(process.platform!=='win32'||!['EPERM','EBUSY','EACCES'].includes(e.code)||attempt>=5)throw e;await new Promise(resolve=>setTimeout(resolve,50*(attempt+1)));}}}finally{await fs.rm(temp,{force:true}).catch(()=>{});}});atomicWrites.set(key,write);try{await write;}finally{if(atomicWrites.get(key)===write)atomicWrites.delete(key);}}
+
 async function readJson(file, fallback) { try { return JSON.parse((await fs.readFile(file,'utf8')).replace(/^\uFEFF/,'')); } catch(e) { if(e.code === 'ENOENT') return fallback; throw e; } }
 const hash = (data, algorithm='sha256') => crypto.createHash(algorithm).update(data).digest('hex');
 function approvedURL(value) {

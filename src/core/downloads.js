@@ -3,7 +3,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('n
 const {request,hash,noLinks}=require('./util');
 class Downloads {
  constructor(emit,network=request,limit=3){this.emit=emit;this.network=network;this.limit=limit;this.tasks=new Map();this.active=0;this.waiters=[];this.last=0;}
- state(){return [...this.tasks.values()].map(t=>({id:t.id,name:t.name,status:t.status,current:t.current,total:t.total,speed:t.speed||0,error:t.error||''}));}
+ state(){return [...this.tasks.values()].map(t=>({id:t.id,name:t.name,status:t.status,current:t.current,total:t.total,speed:t.status==='running'?t.speed||0:0,etaSeconds:t.status==='running'&&t.speed>0&&t.total>t.current?(t.total-t.current)/t.speed:null,error:t.error||''}));}
  notify(force=false){if(!force&&Date.now()-this.last<250)return;this.last=Date.now();this.emit('downloads',this.state());}
  async acquire(){if(this.active>=this.limit)await new Promise(resolve=>this.waiters.push(resolve));this.active++;}
  release(){this.active--;this.waiters.shift()?.();}

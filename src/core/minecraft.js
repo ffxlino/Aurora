@@ -5,6 +5,7 @@ function minecraftOS(platform=process.platform){return {win32:'windows',linux:'l
 function ruleMatches(r,platform=process.platform){const os=r.os||{};if(os.name && os.name!==minecraftOS(platform))return false;if(os.arch && !['x86_64','amd64'].includes(os.arch))return false;if(os.version && !(new RegExp(os.version)).test(require('node:os').release()))return false;if(r.features && Object.values(r.features).some(Boolean))return false;return true;}
 function allowed(rules,platform=process.platform){if(!rules)return true;let yes=false;for(const r of rules)if(ruleMatches(r,platform))yes=r.action==='allow';return yes;}
 function argumentsFor(entries,vars){return (entries||[]).flatMap(e=>typeof e==='string'?[e]:allowed(e.rules)?(Array.isArray(e.value)?e.value:[e.value]):[]).map(a=>a.replace(/\$\{([^}]+)\}/g,(_,key)=>{if(!(key in vars))throw Error('Неизвестный параметр Minecraft: '+key);return String(vars[key]);}));}
+function launchJvmArguments(entries,vars,clientJarName){const args=argumentsFor(entries,vars);return args.map(arg=>{if(!arg.startsWith('-DignoreList='))return arg;const names=arg.slice(13).split(',');if(!names.includes(clientJarName))names.push(clientJarName);return '-DignoreList='+names.join(',');});}
 function mavenPath(name){const [coord,ext='jar']=name.split('@');const [group,artifact,version,classifier]=coord.split(':');if(!group||!artifact||!version)throw Error('Некорректная библиотека');return `${group.replaceAll('.','/')}/${artifact}/${version}/${artifact}-${version}${classifier?'-'+classifier:''}.${ext}`;}
 async function pool(items,fn,count=8){let index=0;const workers=Array.from({length:Math.min(count,items.length)},async()=>{while(index<items.length)await fn(items[index++]);});const results=await Promise.allSettled(workers);const error=results.find(r=>r.status==='rejected');if(error)throw error.reason;}
 class Minecraft {
@@ -62,8 +63,8 @@ class Minecraft {
   }
   async launch(instance,account,settings){
     if(this.process)throw Error('Minecraft уже запущен');const {profile,java:automaticJava,natives,classpath}=await this.install(instance);const java=instance.launchSettings?.javaPath||automaticJava;if(typeof account==='function')account=await account();const dir=path.join(this.root,'instances',instance.id,'game');await fs.mkdir(dir,{recursive:true});
-    const vars={auth_player_name:account.name,version_name:profile.id,game_directory:dir,assets_root:path.join(this.game,'assets'),assets_index_name:profile.assetIndex.id,auth_uuid:account.id,auth_access_token:account.token,clientid:settings.clientId,auth_xuid:'',user_type:'msa',version_type:'release',natives_directory:natives,launcher_name:'Aurora',launcher_version:'0.5.0',classpath:classpath.join(path.delimiter),classpath_separator:path.delimiter,library_directory:path.join(this.game,'libraries'),user_properties:'{}',resolution_width:String(instance.launchSettings?.width||1280),resolution_height:String(instance.launchSettings?.height||800)};
-    const args=[`-Xmx${instance.launchSettings?.memory||settings.memory}M`,'-Xms512M',...argumentsFor(profile.arguments.jvm,vars)];const gameArgs=[profile.mainClass,...argumentsFor(profile.arguments.game,vars)];
+    const vars={auth_player_name:account.name,version_name:profile.id,game_directory:dir,assets_root:path.join(this.game,'assets'),assets_index_name:profile.assetIndex.id,auth_uuid:account.id,auth_access_token:account.token,clientid:settings.clientId,auth_xuid:'',user_type:'msa',version_type:'release',natives_directory:natives,launcher_name:'Aurora',launcher_version:'0.6.0',classpath:classpath.join(path.delimiter),classpath_separator:path.delimiter,library_directory:path.join(this.game,'libraries'),user_properties:'{}',resolution_width:String(instance.launchSettings?.width||1280),resolution_height:String(instance.launchSettings?.height||800)};
+    const args=[`-Xmx${instance.launchSettings?.memory||settings.memory}M`,'-Xms512M',...launchJvmArguments(profile.arguments.jvm,vars,instance.version+'.jar')];const gameArgs=[profile.mainClass,...argumentsFor(profile.arguments.game,vars)];
     const argsFile=path.join(this.root,'instances',instance.id,'launch.args');await atomic(argsFile,args.map(a=>'"'+String(a).replaceAll('\\','\\\\').replaceAll('"','\\"')+'"').join('\n'));
     this.progress('Запуск игры');const child=spawn(java,['@'+argsFile,...gameArgs],{cwd:dir,windowsHide:true,stdio:['ignore','pipe','pipe']});this.process=child;
     const clean=s=>String(s).replaceAll(account.token,'[token]').replace(/Bearer\s+\S+/gi,'Bearer [hidden]');
@@ -74,4 +75,4 @@ class Minecraft {
   }
   stop(){if(this.process)this.process.kill();}
 }
-module.exports={Minecraft,minecraftOS,allowed,argumentsFor,mavenPath,pool};
+module.exports={Minecraft,minecraftOS,allowed,argumentsFor,launchJvmArguments,mavenPath,pool};
