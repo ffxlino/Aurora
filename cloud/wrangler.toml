@@ -5,7 +5,9 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [vars]
-MICROSOFT_APPROVED = "false"
+MICROSOFT_APPROVED = "true"
+GITHUB_REPOSITORY = "ffxlino/Aurora-Packs"
+OWNER_NAME = "JoudeFox"
 
 [[durable_objects.bindings]]
 name = "HUB"

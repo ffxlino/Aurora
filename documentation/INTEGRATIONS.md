@@ -19,11 +19,11 @@ Downloads with no available URL are rejected with an explanatory error. The appl
 
 Modrinth: public project search, versions, required dependencies, file hash recognition and mrpack import. Real resource downloads have been verified.
 
-Microsoft: device-code sign-in followed by Xbox Live and Minecraft Services. The owner’s application Client ID is bundled. Public client flows must be enabled in Entra, and a licensed account is required. Approval from Mojang is pending. Direct sign-in is disabled in the distributed application; the current mode prepares an isolated profile and opens the separately installed official Minecraft Launcher.
+Microsoft: device-code sign-in followed by Xbox Live and Minecraft Services. The owner’s application Client ID is bundled. Public client flows must be enabled in Entra, and a licensed account is required. The owner received Mojang allow-list approval. Live Microsoft / Xbox / Minecraft profile authentication and a direct Fabric 1.20.1 launch have been verified on Windows. Version 0.5 enables direct login and retains official Minecraft Launcher handoff as an optional setting.
 
 ## Data and hosting
 
-Settings and instances are local. Sensitive stored credentials use Electron safeStorage on Windows. The optional shared modpack hub is hosted by a user, with HTTPS certificate pinning, password hashing, editor permissions and revision conflict checks. A separate Cloudflare Workers Free / SQLite Durable Objects backend is available for private invited groups, with chunk uploads, checksums, immutable verified files, persistent roles and revision checks. It requires owner deployment; it is not a Minecraft gameplay server. Aurora does not operate a public mod mirror or central account service.
+Settings and instances are local. Sensitive stored credentials use Electron safeStorage on Windows. The optional shared modpack hub is hosted by a user, with HTTPS certificate pinning, password hashing, editor permissions and revision conflict checks. A separate Cloudflare Workers Free / SQLite Durable Objects backend is available for private invited groups, with chunk uploads, checksums, immutable verified files, persistent roles and revision checks. It requires owner deployment; it is not a Minecraft gameplay server. Shared pack versions are public GitHub Releases in the separate Aurora-Packs repository. Known Modrinth files retain their official download URLs. Cloudflare holds metadata, invitations and temporary uploads; the GitHub publishing credential remains server-side.
 
 The static website has no login, advertising, analytics, payment system or API key input. Screenshots use a test instance and are illustrative of the actual application UI.
 

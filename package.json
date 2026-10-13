@@ -1,6 +1,6 @@
 {
   "name": "aurora-launcher",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Aurora — Minecraft launcher and private modpack hub",
   "main": "src/main.js",
   "author": {
