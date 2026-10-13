@@ -1,6 +1,6 @@
 # API integration overview
 
-Aurora is a Windows desktop launcher for Minecraft Java Edition, maintained by GitHub user ffxlino. Its source is in the Aurora repository, renamed from CraftSync. The current application is an Electron desktop app; the website is a static project introduction.
+Aurora is a Windows and Linux desktop launcher for Minecraft Java Edition, maintained by GitHub user ffxlino. Its source is in the Aurora repository, renamed from CraftSync. The current application is an Electron desktop app; the website is a static project introduction.
 
 ## Intended CurseForge usage
 
@@ -19,11 +19,11 @@ Downloads with no available URL are rejected with an explanatory error. The appl
 
 Modrinth: public project search, versions, required dependencies, file hash recognition and mrpack import. Real resource downloads have been verified.
 
-Microsoft: device-code sign-in followed by Xbox Live and Minecraft Services. The owner’s application Client ID is bundled. Public client flows must be enabled in Entra, and a licensed account is required. Live authorization remains unverified.
+Microsoft: device-code sign-in followed by Xbox Live and Minecraft Services. The owner’s application Client ID is bundled. Public client flows must be enabled in Entra, and a licensed account is required. Approval from Mojang is pending. Direct sign-in is disabled in the distributed application; the current mode prepares an isolated profile and opens the separately installed official Minecraft Launcher.
 
 ## Data and hosting
 
-Settings and instances are local. Sensitive stored credentials use Electron safeStorage on Windows. The optional shared modpack hub is hosted by a user, with HTTPS certificate pinning, password hashing, editor permissions and revision conflict checks. Aurora does not operate a public mod mirror or central account service.
+Settings and instances are local. Sensitive stored credentials use Electron safeStorage on Windows. The optional shared modpack hub is hosted by a user, with HTTPS certificate pinning, password hashing, editor permissions and revision conflict checks. A separate Cloudflare Workers Free / SQLite Durable Objects backend is available for private invited groups, with chunk uploads, checksums, immutable verified files, persistent roles and revision checks. It requires owner deployment; it is not a Minecraft gameplay server. Aurora does not operate a public mod mirror or central account service.
 
 The static website has no login, advertising, analytics, payment system or API key input. Screenshots use a test instance and are illustrative of the actual application UI.
 

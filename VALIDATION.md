@@ -1,13 +1,14 @@
-# Проверка Aurora 0.2.1
+# Validation — Aurora 0.4.0
 
-Дата: 11 октября 2026. Windows x64.
+34 launcher tests and 4 cloud-server tests passed locally and in Windows/Linux CI. Server tests use native workerd via Miniflare, including the actual Aurora HubClient publishing chunks and pulling updates while retaining local worlds.
 
-- Client ID владельца встроен в launcher.config.json. Поле ручного ввода ID удалено из пользовательского интерфейса. При обновлении пустая настройка предыдущей версии получает встроенное значение.
-- Убраны лишние слоганы из боковой панели и библиотеки.
-- Закрытие окна входа отменяет ожидание Microsoft и сохраняет ранее подключённый профиль.
-- 22 автоматические проверки пройдены. Добавлены проверки цепочки Microsoft → Xbox → Minecraft на тестовых ответах, отмены входа и сообщения о выключенных public client flows. Тестовые токены не попадают в интерфейс.
-- Проверка настоящего интерфейса пройдена: встроенный ID сохраняется при изменении других настроек, поле ID отсутствует, карточки и подтверждения работают.
+The final Windows portable EXE passed six-view interface tests, custom confirmation acceptance/cancellation, settings/backup/decoration/diagnostic controls, Modrinth resource cards, mod toggling and manual environment selection, HTTPS admin connection and close confirmation. No horizontal overflow in tested views.
 
-Проверка живого запроса Microsoft с Client ID владельца: получен AADSTS70002 (нужно включить public client flows в Entra). Сам вход в аккаунт и запуск лицензированной игры пока не проверены. Это отдельный этап после настройки владельцем.
+Linux AppImage and pacman packaging passed in Ubuntu 22.04 CI. The packaged Linux interface passed six-view tests. A real Minecraft 1.20.1 / Fabric 0.16.10 / Java 17 installation generated the official launcher profile and successfully invoked downloaded Linux Java. Windows real installation was previously validated in 0.3; no new Windows licensed game launch is claimed.
 
-Modrinth и другие возможности проверялись в 0.2.0: реальные загрузки Sodium, Lithium, Iris, Complementary и Fresh Animations; карточки, категории, переключатели и HTTPS-сервер. CurseForge остаётся без проектного API-ключа; проверен на тестовых ответах. Постоянный облачный сервер ещё не развёрнут.
+Cloud worker dry-run bundle passed. Authentication to the owner's Cloudflare account succeeded; live deployment awaits Workers activation and Free-plan confirmation. R2 and paid resources are absent from the configuration. A 4 GB production upload has not been tested.
+
+Not verified: licensed game start and Microsoft sign-in through the official launcher on this Windows machine (the official launcher is not installed), actual Arch/Wayland desktop, hardware-specific graphics/audio. Direct Microsoft sign-in in Aurora and CurseForge remain disabled pending approval. Aurora opens the prepared profile in the official launcher; the user signs in and presses Play there.
+
+CI: https://github.com/ffxlino/Aurora/actions/runs/38433792642
+Release: https://github.com/ffxlino/Aurora/releases/tag/v0.4.0
