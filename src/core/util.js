@@ -36,7 +36,7 @@ function approvedURL(value) {
 async function request(url, options={}) {
   let current = approvedURL(url);
   for(let i=0;i<8;i++) {
-    const r = await fetch(current, {...options, redirect:'manual', headers:{'User-Agent':AGENT,...options.headers},signal: options.signal || AbortSignal.timeout(120000)});
+    let r;for(let attempt=0;attempt<3;attempt++){try{r=await fetch(current,{...options,redirect:'manual',headers:{'User-Agent':AGENT,...options.headers},signal:options.signal||AbortSignal.timeout(120000)});break;}catch(e){if((options.method||'GET')!=='GET'||attempt===2)throw Error('Не удалось подключиться к '+current.hostname+' ('+(e.cause?.code||e.name)+')');await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));}}
     if ([301,302,303,307,308].includes(r.status)) { current=approvedURL(new URL(r.headers.get('location'),current).href); await r.body?.cancel(); continue; }
     if(!r.ok) { await r.body?.cancel(); throw Error(`Сервис ${current.hostname}: HTTP ${r.status}`); }
     return r;

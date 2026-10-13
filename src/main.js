@@ -3,8 +3,8 @@ const {app,BrowserWindow,ipcMain,dialog,shell,safeStorage}=require('electron');
 const path=require('node:path'),fs=require('node:fs/promises'),os=require('node:os');
 const {OfficialLauncher,findLauncher}=require('./core/official');
 const {atomic,readJson,files}=require('./core/util');const {Accounts}=require('./core/auth');const {Minecraft}=require('./core/minecraft');const {Packs}=require('./core/packs');const {HubServer,HubClient}=require('./core/hub');const {Catalog}=require('./core/catalog');
-const smoke=process.argv.includes('--smoke');if(smoke)app.setPath('userData',path.join(process.cwd(),'artifacts','smoke-data'));
-const single=app.requestSingleInstanceLock();if(!single)app.quit();let win,root,settings,accounts,mc,packs,host,client,catalog,official,distribution,busy=false,closeTicket=null,allowClose=false,fatal=false;
+const smoke=process.argv.includes('--smoke');if(smoke)app.disableHardwareAcceleration();if(smoke)app.setPath('userData',path.join(process.cwd(),'artifacts','smoke-data'));
+const single=smoke||app.requestSingleInstanceLock();if(!single)app.quit();let win,root,settings,accounts,mc,packs,host,client,catalog,official,distribution,busy=false,closeTicket=null,allowClose=false,fatal=false;
 function emit(type,data){if(win&&!win.isDestroyed())win.webContents.send('event',{type,data});}
 async function run(label,fn){if(busy)throw Error('Дождитесь окончания текущей операции');if(mc.process)throw Error('Закройте Minecraft перед изменением сборок');busy=true;emit('busy',true);emit('progress',{label,current:0,total:0});try{return await fn();}finally{busy=false;emit('busy',false);}}
 function handle(name,fn){ipcMain.handle(name,async(event,...args)=>{if(event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Доступ запрещён');try{return {ok:true,value:await fn(...args)};}catch(e){return {ok:false,error:e.message};}});}
@@ -50,9 +50,11 @@ app.whenReady().then(async()=>{
  handle('window:close-response',input=>{if(!closeTicket||input.ticket!==closeTicket)return;closeTicket=null;if(input.accept===true){allowClose=true;win.close();}});
  handle('app:fatal-close',()=>{if(fatal)app.exit(1);});
  win.on('close',e=>{if(!allowClose&&(busy||mc.process||host.server)){e.preventDefault();if(!closeTicket){closeTicket=require('node:crypto').randomUUID();emit('close-request',{ticket:closeTicket,message:'Текущая операция, Minecraft и сервер общих сборок будут остановлены. Закрыть Aurora?'});}}});
+ if(smoke)win.webContents.on('console-message',(_event,...args)=>console.log('Renderer:',...args));
  await win.loadFile(path.join(__dirname,'ui','index.html'));
- if(smoke)await require('./smoke')(win,app);
-});
+ if(smoke)console.log('Smoke loaded');
+ if(smoke)await Promise.race([require('./smoke')(win,app),new Promise((_,reject)=>setTimeout(()=>reject(Error('Smoke timed out')),30000))]);
+}).catch(e=>{if(smoke||!win||win.isDestroyed()){console.error(e);app.exit(1);}else{fatal=true;emit('fatal',e.message);}});
 app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.focus();}});
 app.on('window-all-closed',()=>app.quit());app.on('before-quit',()=>{mc?.stop();host?.server?.close();});
 process.on('uncaughtException',e=>{if(smoke||!win||win.isDestroyed()){console.error(e);app.exit(1);}else{fatal=true;emit('fatal',e.message);}});

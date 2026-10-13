@@ -11,6 +11,8 @@ jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --dns-result-order=ipv4first
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
