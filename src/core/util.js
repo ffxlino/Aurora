@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const AdmZip = require('adm-zip');
-const AGENT = 'AuroraLauncher/0.4.1';
+const AGENT = 'AuroraLauncher/0.5.0';
 function safePath(root, name) {
   if (typeof name !== 'string' || !name || name.length > 500 || /[\\:\x00-\x1f]/.test(name) || name.startsWith('/')) throw Error('Недопустимый путь файла');
   const parts = name.split('/');
@@ -36,7 +36,7 @@ function approvedURL(value) {
 async function request(url, options={}) {
   let current = approvedURL(url);
   for(let i=0;i<8;i++) {
-    let r;for(let attempt=0;attempt<3;attempt++){try{r=await fetch(current,{...options,redirect:'manual',headers:{'User-Agent':AGENT,...options.headers},signal:options.signal||AbortSignal.timeout(120000)});break;}catch(e){if((options.method||'GET')!=='GET'||attempt===2)throw Error('Не удалось подключиться к '+current.hostname+' ('+(e.cause?.code||e.name)+')');await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));}}
+    let r;for(let attempt=0;attempt<6;attempt++){try{r=await fetch(current,{...options,redirect:'manual',headers:{'User-Agent':AGENT,...options.headers},signal:options.signal||AbortSignal.timeout(120000)});if(r.status===404&&(options.method||'GET')==='GET'&&current.hostname==='github.com'&&current.pathname.includes('/releases/download/')&&attempt<5){await r.body?.cancel();await new Promise(resolve=>setTimeout(resolve,Math.min(1000*2**attempt,8000)));continue;}break;}catch(e){if((options.method||'GET')!=='GET'||attempt>=2)throw Error('Не удалось подключиться к '+current.hostname+' ('+(e.cause?.code||e.name)+')');await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));}}
     if ([301,302,303,307,308].includes(r.status)) { current=approvedURL(new URL(r.headers.get('location'),current).href); await r.body?.cancel(); continue; }
     if(!r.ok) { await r.body?.cancel(); throw Error(`Сервис ${current.hostname}: HTTP ${r.status}`); }
     return r;
