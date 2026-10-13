@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const AdmZip = require('adm-zip');
-const AGENT = 'AuroraLauncher/0.4.0';
+const AGENT = 'AuroraLauncher/0.4.1';
 function safePath(root, name) {
   if (typeof name !== 'string' || !name || name.length > 500 || /[\\:\x00-\x1f]/.test(name) || name.startsWith('/')) throw Error('Недопустимый путь файла');
   const parts = name.split('/');
