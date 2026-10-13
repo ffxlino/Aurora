@@ -1,8 +1,9 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),{spawn}=require('node:child_process');
 const {json,request,download,extract,readJson,atomic,safePath,files}=require('./util');
-function ruleMatches(r){const os=r.os||{};if(os.name && os.name!=='windows')return false;if(os.arch && !['x86_64','amd64'].includes(os.arch))return false;if(os.version && !(new RegExp(os.version)).test(require('node:os').release()))return false;if(r.features && Object.values(r.features).some(Boolean))return false;return true;}
-function allowed(rules){if(!rules)return true;let yes=false;for(const r of rules)if(ruleMatches(r))yes=r.action==='allow';return yes;}
+function minecraftOS(platform=process.platform){return {win32:'windows',linux:'linux',darwin:'osx'}[platform]||platform;}
+function ruleMatches(r,platform=process.platform){const os=r.os||{};if(os.name && os.name!==minecraftOS(platform))return false;if(os.arch && !['x86_64','amd64'].includes(os.arch))return false;if(os.version && !(new RegExp(os.version)).test(require('node:os').release()))return false;if(r.features && Object.values(r.features).some(Boolean))return false;return true;}
+function allowed(rules,platform=process.platform){if(!rules)return true;let yes=false;for(const r of rules)if(ruleMatches(r,platform))yes=r.action==='allow';return yes;}
 function argumentsFor(entries,vars){return (entries||[]).flatMap(e=>typeof e==='string'?[e]:allowed(e.rules)?(Array.isArray(e.value)?e.value:[e.value]):[]).map(a=>a.replace(/\$\{([^}]+)\}/g,(_,key)=>{if(!(key in vars))throw Error('Неизвестный параметр Minecraft: '+key);return String(vars[key]);}));}
 function mavenPath(name){const [coord,ext='jar']=name.split('@');const [group,artifact,version,classifier]=coord.split(':');if(!group||!artifact||!version)throw Error('Некорректная библиотека');return `${group.replaceAll('.','/')}/${artifact}/${version}/${artifact}-${version}${classifier?'-'+classifier:''}.${ext}`;}
 async function pool(items,fn,count=8){let index=0;const workers=Array.from({length:Math.min(count,items.length)},async()=>{while(index<items.length)await fn(items[index++]);});const results=await Promise.allSettled(workers);const error=results.find(r=>r.status==='rejected');if(error)throw error.reason;}
@@ -11,11 +12,11 @@ class Minecraft {
   progress(label,current=0,total=0){this.emit('progress',{label,current,total});}
   async versions(){const manifest=await json('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');this.manifest=manifest;return manifest.versions.filter(v=>v.type==='release' && new Date(v.releaseTime)>=new Date('2021-11-30')).map(v=>v.id);}
   async java(major){
-    const target=path.join(this.root,'java',String(major));const list=await files(target);const found=list.find(f=>f.path.endsWith('/bin/java.exe'));if(found)return safePath(target,found.path);
-    this.progress('Установка Java '+major);const builds=await json(`https://api.adoptium.net/v3/assets/latest/${major}/hotspot?architecture=x64&heap_size=normal&image_type=jre&jvm_impl=hotspot&os=windows&vendor=eclipse`);
-    const binary=builds[0]?.binary?.package;if(!binary)throw Error('Не найдена Java '+major);const zip=path.join(this.root,'cache',`java-${major}.zip`);
-    await download(binary.link,zip,binary.checksum,'sha256',(n,t)=>this.progress('Загрузка Java '+major,n,t));await extract(zip,target);await fs.rm(zip,{force:true});
-    const exe=(await files(target)).find(f=>f.path.endsWith('/bin/java.exe'));if(!exe)throw Error('Java не установлена');return safePath(target,exe.path);
+    const target=path.join(this.root,'java',String(major));const list=await files(target);const linux=process.platform==='linux';const suffix=linux?'/bin/java':'/bin/java.exe';const found=list.find(f=>f.path.endsWith(suffix));if(found)return safePath(target,found.path);
+    this.progress('Установка Java '+major);const builds=await json(`https://api.adoptium.net/v3/assets/latest/${major}/hotspot?architecture=x64&heap_size=normal&image_type=jre&jvm_impl=hotspot&os=${linux?'linux':'windows'}&vendor=eclipse`);
+    const binary=builds[0]?.binary?.package;if(!binary)throw Error('Не найдена Java '+major);const zip=path.join(this.root,'cache',`java-${major}-${linux?'linux.tar.gz':'windows.zip'}`);
+    await download(binary.link,zip,binary.checksum,'sha256',(n,t)=>this.progress('Загрузка Java '+major,n,t));if(linux){await fs.mkdir(target,{recursive:true});await new Promise((resolve,reject)=>{const child=spawn('tar',['-xzf',zip,'-C',target],{stdio:'ignore'});child.once('error',reject);child.once('exit',code=>code===0?resolve():reject(Error('Не удалось распаковать Java')));});}else await extract(zip,target);await fs.rm(zip,{force:true});
+    const exe=(await files(target)).find(f=>f.path.endsWith(suffix));if(!exe)throw Error('Java не установлена');if(linux)await fs.chmod(safePath(target,exe.path),0o755);return safePath(target,exe.path);
   }
   async installForge(instance,vanilla,java){
     const v=instance.loaderVersion;if(!v||!/^[-a-zA-Z0-9.+_]+$/.test(v))throw Error('Укажите точную версию Forge / NeoForge');
@@ -51,7 +52,7 @@ class Minecraft {
       if(!allowed(lib.rules))continue;
       const a=lib.downloads?.artifact || (!lib.downloads?{path:mavenPath(lib.name),url:(lib.url||'https://libraries.minecraft.net/')+mavenPath(lib.name)}:null);
       if(a){const target=safePath(path.join(this.game,'libraries'),a.path);classpath.push(target);downloads.push(async()=>{if(a.url)await download(a.url,target,a.sha1);else await fs.access(target);});}
-      if(lib.natives?.windows){const classifier=lib.natives.windows.replace('${arch}','64');const n=lib.downloads?.classifiers?.[classifier];if(n){const target=safePath(path.join(this.game,'libraries'),n.path);downloads.push(async()=>{await download(n.url,target,n.sha1);await extract(target,natives,'',name=>name.endsWith('.dll'));});}}
+      if(lib.natives?.[minecraftOS()]){const classifier=lib.natives[minecraftOS()].replace('${arch}','64');const n=lib.downloads?.classifiers?.[classifier];if(n){const target=safePath(path.join(this.game,'libraries'),n.path);downloads.push(async()=>{await download(n.url,target,n.sha1);await extract(target,natives,'',name=>name.endsWith(process.platform==='linux'?'.so':'.dll'));});}}
     }
     let done=0;await pool(downloads,async fn=>{await fn();this.progress('Библиотеки Minecraft',++done,downloads.length);});
     const jar=path.join(this.game,'versions',instance.version,instance.version+'.jar');await download(vanilla.downloads.client.url,jar,vanilla.downloads.client.sha1,'sha1',(n,t)=>this.progress('Клиент Minecraft',n,t));classpath.push(jar);
@@ -61,7 +62,7 @@ class Minecraft {
   }
   async launch(instance,account,settings){
     if(this.process)throw Error('Minecraft уже запущен');const {profile,java,natives,classpath}=await this.install(instance);if(typeof account==='function')account=await account();const dir=path.join(this.root,'instances',instance.id,'game');await fs.mkdir(dir,{recursive:true});
-    const vars={auth_player_name:account.name,version_name:profile.id,game_directory:dir,assets_root:path.join(this.game,'assets'),assets_index_name:profile.assetIndex.id,auth_uuid:account.id,auth_access_token:account.token,clientid:settings.clientId,auth_xuid:'',user_type:'msa',version_type:'release',natives_directory:natives,launcher_name:'Aurora',launcher_version:'0.2.1',classpath:classpath.join(path.delimiter),classpath_separator:path.delimiter,library_directory:path.join(this.game,'libraries'),user_properties:'{}',resolution_width:'1280',resolution_height:'800'};
+    const vars={auth_player_name:account.name,version_name:profile.id,game_directory:dir,assets_root:path.join(this.game,'assets'),assets_index_name:profile.assetIndex.id,auth_uuid:account.id,auth_access_token:account.token,clientid:settings.clientId,auth_xuid:'',user_type:'msa',version_type:'release',natives_directory:natives,launcher_name:'Aurora',launcher_version:'0.3.0',classpath:classpath.join(path.delimiter),classpath_separator:path.delimiter,library_directory:path.join(this.game,'libraries'),user_properties:'{}',resolution_width:'1280',resolution_height:'800'};
     const args=[`-Xmx${settings.memory}M`,'-Xms512M',...argumentsFor(profile.arguments.jvm,vars),profile.mainClass,...argumentsFor(profile.arguments.game,vars)];
     const argsFile=path.join(this.root,'instances',instance.id,'launch.args');await atomic(argsFile,args.map(a=>'"'+String(a).replaceAll('\\','\\\\').replaceAll('"','\\"')+'"').join('\n'));
     this.progress('Запуск игры');const child=spawn(java,['@'+argsFile],{cwd:dir,windowsHide:true,stdio:['ignore','pipe','pipe']});this.process=child;
@@ -73,4 +74,4 @@ class Minecraft {
   }
   stop(){if(this.process)this.process.kill();}
 }
-module.exports={Minecraft,allowed,argumentsFor,mavenPath,pool};
+module.exports={Minecraft,minecraftOS,allowed,argumentsFor,mavenPath,pool};

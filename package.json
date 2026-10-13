@@ -1,6 +1,6 @@
 {
   "name": "aurora-launcher",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Aurora — Minecraft launcher and private modpack hub",
   "main": "src/main.js",
   "author": "Aurora",
@@ -8,7 +8,9 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "dist": "electron-builder --win portable --x64"
+    "dist": "electron-builder --win portable --x64",
+    "dist:linux": "electron-builder --linux AppImage pacman --x64",
+    "verify:engine": "node scripts/verify-engine.cjs"
   },
   "dependencies": {
     "adm-zip": "^0.6.1",
@@ -46,6 +48,35 @@
         "from": "launcher.config.json",
         "to": "launcher.config.json"
       }
-    ]
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "pacman"
+      ],
+      "category": "Game",
+      "icon": "src/ui/icon.png",
+      "artifactName": "Aurora-${version}-Linux-${arch}.${ext}",
+      "executableName": "aurora",
+      "desktop": {
+        "entry": {
+          "Name": "Aurora",
+          "Comment": "Minecraft modpack manager",
+          "Categories": "Game;"
+        }
+      }
+    },
+    "pacman": {
+      "depends": [
+        "gtk3",
+        "libnotify",
+        "nss",
+        "libxss",
+        "libxtst",
+        "xdg-utils",
+        "alsa-lib",
+        "mesa"
+      ]
+    }
   }
 }

@@ -5,7 +5,7 @@ class Accounts {
   constructor(root,secure,emit){this.file=path.join(root,'account.bin');this.secure=secure;this.emit=emit;this.current=null;this.pending=false;}
   async load(){try{this.current=JSON.parse(this.secure.decryptString(await fs.readFile(this.file)));}catch(e){if(e.code!=='ENOENT')this.emit('log','Не удалось прочитать сохранённый вход. Войдите повторно.');}return this.public();}
   public(){return this.current?{name:this.current.name,id:this.current.id}:null;}
-  async save(){if(!this.secure.isEncryptionAvailable())throw Error('Защищённое хранилище Windows недоступно');await atomic(this.file,this.secure.encryptString(JSON.stringify(this.current)));}
+  async save(){if(!this.secure.isEncryptionAvailable()||this.secure.getSelectedStorageBackend?.()==='basic_text')throw Error('Защищённое хранилище аккаунта недоступно');await atomic(this.file,this.secure.encryptString(JSON.stringify(this.current)));}
   async oauth(data){const r=await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(data),signal:AbortSignal.timeout(30000)});const j=await r.json();if(!r.ok){const e=Error(j.error_description||j.error);e.code=j.error;throw e;}return j;}
   async exchange(ms,generation=this.generation){
     const post=(url,body)=>json(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)});

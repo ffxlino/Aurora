@@ -8,7 +8,7 @@ module.exports=async function(win,app){
   await wait(()=>typeof state!=='undefined'&&state.packs);const before=await window.aurora.call('state');const saved=await window.aurora.call('settings:save',{memory:before.settings.memory});const microsoftConfigured=saved.clientId==='644a33e0-cf4b-4b46-8f94-b94a93733b32'&&!document.querySelector('#client-id');
   const p=await window.aurora.call('pack:create',{name:'Тестовая сборка',version:'1.21.1',loader:'fabric',loaderVersion:'0.19.5'});
   await wait(()=>document.querySelector('[data-select="'+p.id+'"]'));document.querySelector('[data-select="'+p.id+'"]').click();await wait(()=>document.querySelector('#resource-panel .resource-types'));
-  const details=!!document.querySelector('#play-btn');const views=[];
+  const details=!!document.querySelector('#play-btn');const officialMode=before.settings.launchMode==='official'&&!!document.querySelector('#official-path')&&document.querySelector('#catalog-source').options.length===1&&document.querySelector('#catalog-source').value==='modrinth';const views=[];
   for(const page of ['catalog','community','activity','settings','library']){document.querySelector('[data-page="'+page+'"]').click();views.push({page,visible:document.querySelector('#page-'+page).classList.contains('active'),overflow:document.documentElement.scrollWidth>innerWidth});}
   let response=uiConfirm('Проверка отмены',{title:'Встроенное подтверждение'});document.querySelector('#confirm-cancel').click();const canceled=await response===false;
   response=uiConfirm('Проверка подтверждения');document.querySelector('#confirm-accept').click();const accepted=await response===true;
@@ -22,7 +22,7 @@ module.exports=async function(win,app){
    inventory={cards:count,sourceBadges:document.querySelectorAll('.installed-card .source-pill.modrinth').length,toggle:true,manualSide:true,overflow:document.documentElement.scrollWidth>innerWidth};
   }
   const host=await window.aurora.call('hub:host',{password:'smoke-check-master-password',port,whitelist:[]});const connected=await window.aurora.call('hub:connect',{url:'https://127.0.0.1:'+port,fingerprint:host.fingerprint,master:'smoke-check-master-password'});
-  return {title:document.title,microsoftConfigured,details,views,bridge:typeof window.require==='undefined',confirm:{canceled,accepted},inventory,hub:connected.role};
+  return {title:document.title,microsoftConfigured,details,officialMode,views,bridge:typeof window.require==='undefined',confirm:{canceled,accepted},inventory,hub:connected.role};
  };
  const report=await win.webContents.executeJavaScript('('+check.toString()+')('+port+')');
  await win.webContents.executeJavaScript("document.querySelector('#resource-panel')?.scrollIntoView({behavior:'instant',block:'start'})");await new Promise(r=>setTimeout(r,300));
@@ -36,6 +36,6 @@ module.exports=async function(win,app){
  report.closeCanceled=!win.isDestroyed();
  await win.webContents.executeJavaScript("window.aurora.call('hub:stop')");
  await fs.writeFile(path.join(out,'smoke.json'),JSON.stringify(report,null,2));
- if(!report.microsoftConfigured||report.hub!=='admin'||!report.details||!report.bridge||!report.confirm.canceled||!report.confirm.accepted||!report.closeConfirmation||!report.closeCanceled||report.views.some(v=>!v.visible||v.overflow)||report.inventory?.overflow)throw Error('Проверка интерфейса не пройдена');
+ if(!report.officialMode||!report.microsoftConfigured||report.hub!=='admin'||!report.details||!report.bridge||!report.confirm.canceled||!report.confirm.accepted||!report.closeConfirmation||!report.closeCanceled||report.views.some(v=>!v.visible||v.overflow)||report.inventory?.overflow)throw Error('Проверка интерфейса не пройдена');
  app.quit();
 };

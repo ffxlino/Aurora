@@ -1,55 +1,15 @@
-# Aurora
+# Aurora — Minecraft launcher
 
-A desktop Minecraft Java launcher for Windows, with a shared modpack workspace for friends.
+Aurora 0.3.0 manages Minecraft Java modpacks and resources on Windows and Linux x64.
 
-**Status: 0.2.1 preview.** This repository replaces the abandoned CraftSync implementation with Aurora. The repository is now named Aurora; the previous implementation remains in Git history.
+While Mojang and CurseForge application approvals are pending, this release uses **Modrinth only** and hands prepared game installations to the **official Minecraft Launcher**. Players authenticate in that launcher; Aurora does not import its credentials. Select the generated "Aurora · pack name" profile and press Play there. Direct account login in Aurora and CurseForge downloads/imports are temporarily disabled. Existing pack files remain usable.
 
-![Aurora resource library](docs/assets/resources.png)
+Windows portable EXE, Linux AppImage and Arch pacman packages are built in GitHub Actions. The official Minecraft Launcher is a separate prerequisite. Java is provisioned automatically for each platform. The Linux build and interface are tested on Ubuntu CI; specific Arch/Wayland environments still need testing on real devices.
 
-## What it does
+Features include isolated instances, Modrinth catalogs with dependency resolution, installed resource cards, client/server categorization, local file import, .mrpack import/export, archive preservation, backups and change history, launcher path selection, alphabetical/newest sorting and access to the actual game log.
 
-- Manage separate Minecraft instances with Vanilla, Fabric, Quilt, Forge and NeoForge.
-- Browse modpacks, mods, resource packs and shaders through Modrinth and the CurseForge integration.
-- Inspect resource cards with descriptions, provider badges and client/server categories; disable mods or set a category manually.
-- Install compatible resource versions and required dependencies, with checksums and file backups.
-- Share one modpack through a self-hosted HTTPS workspace, with a master password, UUID-based editor permissions and revision history.
-- Download the required Java runtime automatically. Packaged Windows builds include the desktop runtime.
+The built-in shared-pack HTTPS server runs only while Aurora is open. In the temporary mode, administrator access uses the master password; Minecraft-based participant authorization awaits direct API access. This is a pack file server, not a hosted service or Minecraft game server.
 
-## Integration status
+See [Russian user guide](documentation/USER_GUIDE_RU.md). Build with `npm ci`, `npm test`, `npm run dist` on Windows or `npm run dist:linux` on Linux. `npm run verify:engine` downloads and verifies a real Java/Fabric installation and generates an official launcher profile.
 
-**CurseForge access is not provisioned for Aurora yet.** Search and installation require a valid third-party platform API key. An author Upload API token is a different credential. The launcher reports unavailable downloads and does not circumvent authors' distribution restrictions. No Prism Launcher keys are included.
-
-**Microsoft sign-in is configured with the owner’s registered Aurora Client ID.** Players use the sign-in button; no manual ID entry is required. Microsoft → Xbox Live → Minecraft Services authentication still requires public client flows to be enabled in Entra and an account owning Minecraft Java Edition. Live sign-in and game launch remain unverified.
-
-Modrinth resource downloads have been tested live. CurseForge integration has been tested with controlled API responses, not a live Aurora key. See [validation](VALIDATION.md) for the exact scope.
-
-## Build and run
-
-On Windows x64, install Node.js 22 or newer, then:
-
-```powershell
-npm ci
-npm test
-npm start
-npm run dist
-```
-
-The portable output is `dist/Aurora-0.2.1-Windows-x64.exe`. End users do not need Node.js or a separate Java installation. User data lives under `%APPDATA%/aurora-launcher`. The EXE is not digitally signed.
-
-The **Windows build** GitHub Actions workflow can also produce an EXE artifact after a successful test run. No game files, mod binaries, API secrets or user profiles belong in this repository.
-
-## Documentation
-
-- [Руководство на русском](documentation/USER_GUIDE_RU.md)
-- [Validation and current limitations](VALIDATION.md)
-- [Integration overview for API reviewers](documentation/INTEGRATIONS.md)
-- [Static project website](docs/index.html)
-- [GitHub Pages setup](documentation/PUBLISHING.md)
-
-Minecraft Java 1.18+ is the intended scope. Installed files still need testing in game; arbitrary mod combinations are not guaranteed to be compatible. Internet sharing requires a reachable host and appropriate network configuration.
-
-## Contact and licensing
-
-Maintainer: [ffxlino](https://github.com/ffxlino). Questions and bug reports: [repository issues](https://github.com/ffxlino/Aurora/issues).
-
-Aurora source code is licensed under [MIT](LICENSE). Third-party dependencies, Minecraft and mods retain their respective licenses. Aurora is independent and is not an official Minecraft product or affiliated with Mojang, Microsoft, CurseForge, Modrinth or Prism Launcher. This project does not bundle Prism source code or credentials.
+Website: https://ffxlino.github.io/Aurora/

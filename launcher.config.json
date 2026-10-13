@@ -1,3 +1,7 @@
 {
-  "microsoftClientId": "644a33e0-cf4b-4b46-8f94-b94a93733b32"
+  "microsoftClientId": "644a33e0-cf4b-4b46-8f94-b94a93733b32",
+  "launchMode": "official",
+  "enabledProviders": [
+    "modrinth"
+  ]
 }
