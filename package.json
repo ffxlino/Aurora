@@ -3,7 +3,10 @@
   "version": "0.3.0",
   "description": "Aurora — Minecraft launcher and private modpack hub",
   "main": "src/main.js",
-  "author": "Aurora",
+  "author": {
+    "name": "Aurora contributors",
+    "email": "ffxlino@users.noreply.github.com"
+  },
   "license": "MIT",
   "scripts": {
     "start": "electron .",
@@ -78,5 +81,6 @@
         "mesa"
       ]
     }
-  }
+  },
+  "homepage": "https://ffxlino.github.io/Aurora/"
 }

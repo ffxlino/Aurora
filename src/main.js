@@ -15,7 +15,7 @@ app.whenReady().then(async()=>{
  if(!settings.clientId&&distribution.microsoftClientId){settings.clientId=distribution.microsoftClientId;await atomic(path.join(root,'settings.json'),JSON.stringify(settings,null,2));}
  settings.launchMode=distribution.launchMode||settings.launchMode||'official';
  accounts=new Accounts(root,safeStorage,emit);mc=new Minecraft(root,emit);packs=new Packs(root,emit);host=new HubServer(root);client=new HubClient(packs,emit);catalog=new Catalog(packs,async()=>distribution.enabledProviders?.includes('curseforge')?curseKey():'',emit);await accounts.load();official=new OfficialLauncher(root,mc,packs,emit);
- win=new BrowserWindow({width:1440,height:940,icon:path.join(__dirname,'ui','icon.ico'),minWidth:1100,minHeight:760,backgroundColor:'#0d1115',title:'Aurora — Minecraft Launcher',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
+ win=new BrowserWindow({show:!smoke,width:1440,height:940,icon:path.join(__dirname,'ui','icon.ico'),minWidth:1100,minHeight:760,backgroundColor:'#0d1115',title:'Aurora — Minecraft Launcher',autoHideMenuBar:true,webPreferences:{offscreen:smoke,backgroundThrottling:false,preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',e=>e.preventDefault());win.webContents.session.setPermissionRequestHandler((_w,_p,cb)=>cb(false));
  handle('state',async()=>({settings,account:accounts.public(),packs:await packs.list(),root,totalMemory:Math.floor(os.totalmem()/1024**2),appVersion:app.getVersion(),platform:process.platform,enabledProviders:distribution.enabledProviders||['modrinth'],officialLauncher:await findLauncher(settings.officialLauncherPath),curseConfigured:!!(await curseKey()),host:host.info||null,whitelist:await readJson(path.join(root,'hub','whitelist.json'),[])}));
  handle('settings:save',saveSettings);handle('versions',()=>mc.versions());handle('account:login',async()=>{if(settings.launchMode==='official'){await official.open(settings.officialLauncherPath||await findLauncher()||'');return {external:true};}return accounts.login(settings.clientId);});handle('account:logout',()=>accounts.logout());handle('account:cancel',()=>accounts.cancel());
@@ -50,9 +50,7 @@ app.whenReady().then(async()=>{
  handle('window:close-response',input=>{if(!closeTicket||input.ticket!==closeTicket)return;closeTicket=null;if(input.accept===true){allowClose=true;win.close();}});
  handle('app:fatal-close',()=>{if(fatal)app.exit(1);});
  win.on('close',e=>{if(!allowClose&&(busy||mc.process||host.server)){e.preventDefault();if(!closeTicket){closeTicket=require('node:crypto').randomUUID();emit('close-request',{ticket:closeTicket,message:'Текущая операция, Minecraft и сервер общих сборок будут остановлены. Закрыть Aurora?'});}}});
- if(smoke)win.webContents.on('console-message',(_event,...args)=>console.log('Renderer:',...args));
  await win.loadFile(path.join(__dirname,'ui','index.html'));
- if(smoke)console.log('Smoke loaded');
  if(smoke)await Promise.race([require('./smoke')(win,app),new Promise((_,reject)=>setTimeout(()=>reject(Error('Smoke timed out')),30000))]);
 }).catch(e=>{if(smoke||!win||win.isDestroyed()){console.error(e);app.exit(1);}else{fatal=true;emit('fatal',e.message);}});
 app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.focus();}});
