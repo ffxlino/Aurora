@@ -18,5 +18,5 @@ try {
 } catch {
   if($moved -and (Test-Path -LiteralPath $Previous)){Remove-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue;Move-Item -LiteralPath $Previous -Destination $Target}
   @{state='error';message=$_.Exception.Message} | ConvertTo-Json | Set-Content -LiteralPath $ResultFile -Encoding utf8
-  if($moved){Start-Process -FilePath $Target -WindowStyle Normal}
+  if(Test-Path -LiteralPath $Target){Start-Process -FilePath $Target -WindowStyle Normal}
 }
