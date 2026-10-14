@@ -11,3 +11,5 @@ Discord IPC was tested with a local mock. A real Aurora Discord Application ID a
 Linux packaging and interface checks run in GitHub Actions. Actual Arch/Wayland verification on the user's computer remains pending. The previously tested Microsoft login and game installation paths are retained; CurseForge stays disabled pending approved application access.
 
 Windows SHA256: 5291bbcb0089ac4f422f8630ead0d2a79e705142e93cda1e64a696fde124d0f7
+
+GitHub Actions (run 38629838403): Linux packaging (AppImage/pacman), the packaged graphical interface and real Minecraft/Fabric installation verification passed on Ubuntu 22.04. This verifies Linux packaging, not the user's actual Arch/Wayland hardware. Windows tests and packaging also run in this workflow; the release EXE is the previously tested local portable build.
