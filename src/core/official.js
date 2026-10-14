@@ -16,9 +16,9 @@ async function findLauncher(custom='',platform=process.platform,env=process.env,
 }
 class OfficialLauncher {
   constructor(root,minecraft,packs,emit,launchProcess=spawn){this.root=root;this.mc=minecraft;this.packs=packs;this.emit=emit;this.spawn=launchProcess;}
-  async prepare(instance,memory){
-    if(!Number.isInteger(memory)||memory<2048||memory>32768)throw Error('Недопустимый объём памяти');
-    const {profile,java:automaticJava}=await this.mc.install(instance);const java=instance.launchSettings?.javaPath||automaticJava;memory=instance.launchSettings?.memory||memory;await fs.access(java,process.platform==='win32'?fs.constants.F_OK:fs.constants.X_OK);
+  async prepare(instance,memory,settings={}){
+    if(!Number.isInteger(memory)||memory<2048||memory>require('./preferences').memoryLimit())throw Error('Недопустимый объём памяти');
+    const {profile,java:automaticJava}=await this.mc.install(instance);const java=instance.launchSettings?.javaPath||settings.javaPath||automaticJava;memory=require('./preferences').launchMemory(instance.launchSettings?.memory||memory);await fs.access(java,process.platform==='win32'?fs.constants.F_OK:fs.constants.X_OK);
     const workDir=this.mc.game,versionId='aurora-'+instance.id,gameDir=this.packs.dir(instance.id);
     const versionDir=path.join(workDir,'versions',versionId);
     await noLinks(workDir,versionDir);await fs.mkdir(versionDir,{recursive:true});
@@ -31,7 +31,7 @@ class OfficialLauncher {
     if(!existing||typeof existing.profiles!=='object'||Array.isArray(existing.profiles)||!existing.profiles)throw Error('Повреждён файл профилей официального лаунчера. Он сохранён без изменений.');
     await fs.copyFile(file,file+'.aurora-backup').catch(e=>{if(e.code!=='ENOENT')throw e;});
     const key=versionId,name='Aurora · '+instance.name,now=new Date().toISOString();
-    existing.profiles[key]={...existing.profiles[key],name,type:'custom',created:existing.profiles[key]?.created||now,lastUsed:now,lastVersionId:versionId,gameDir,javaDir:java,javaArgs:`-Xmx${memory}M -Xms512M`,resolution:{width:instance.launchSettings?.width||1280,height:instance.launchSettings?.height||800}};
+    existing.profiles[key]={...existing.profiles[key],name,type:'custom',created:existing.profiles[key]?.created||now,lastUsed:now,lastVersionId:versionId,gameDir,javaDir:java,javaArgs:`-Xmx${memory}M -Xms512M`+([settings.jvmArgs,instance.launchSettings?.jvmArgs].filter(Boolean).length?' '+[settings.jvmArgs,instance.launchSettings?.jvmArgs].filter(Boolean).join(' '):''),resolution:{width:instance.launchSettings?.width||1280,height:instance.launchSettings?.height||800}};
     existing.selectedProfile=key;
     await atomic(file,JSON.stringify(existing,null,2));
     await this.packs.save(instance);
@@ -44,7 +44,7 @@ class OfficialLauncher {
   }
   async launch(instance,settings){
     const executable=await findLauncher(settings.officialLauncherPath);if(!executable)throw Error('Установи официальный Minecraft Launcher и выбери его файл в настройках Aurora.');
-    const prepared=await this.prepare(instance,settings.memory);await this.open(executable,prepared.workDir);
+    const prepared=await this.prepare(instance,settings.memory,settings);await this.open(executable,prepared.workDir);
     this.emit('log','Сборка передана официальному лаунчеру: '+prepared.profileName);
     return {...prepared,external:true};
   }

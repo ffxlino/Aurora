@@ -1,16 +1,13 @@
-# Validation — Aurora 0.3.0
+# Validation — Aurora 0.10.0
 
-26 Node tests pass, including official profile preparation, preserving existing profiles, refusing corrupt JSON, passing workDir without a shell, platform-specific library rules, encrypted account flow, mod/resource installation, checksums, backups and shared-hub access controls.
+86 launcher tests and 8 cloud tests passed locally on Windows; one Linux-only AppImage test was skipped. The portable Windows EXE passed the isolated fresh-profile interface checks. All 55 packaged source files matched the tested sources. No real Minecraft game launch is claimed for this release.
 
-Real engine checks passed on Windows and Linux (Ubuntu CI): Minecraft 1.20.1, Fabric 0.16.10, Java 17; Java executable invoked successfully; standalone official launcher profile and client JAR generated. The Linux check uses downloaded Linux Java and platform libraries, not Windows binaries.
+SFTP was checked against a local server with reordered read responses and through a short read-only request to the user's real Bisect server. Full large-pack comparison, the newly created Bisect API key, and actual CPU/RAM/TPS remain user verification tasks. The key is not present in the source or release binary.
 
-The final Windows portable EXE passed interface smoke tests: official launch mode enabled, only Modrinth listed, five views without horizontal overflow, installed resource cards, mod toggling and manual side selection, custom confirmation acceptance/cancellation, HTTPS admin connection and close confirmation. Screenshots visually inspected.
+The friends Worker API passed tests for reciprocal requests, privacy, and immediate hiding of presence and was deployed compatibly. No requests were sent to actual users. Friend identity belongs to a personal community invitation; this is not a universal verified Microsoft social identity.
 
-Linux AppImage and pacman packaging completed successfully. Packaged Linux interface tests passed under Xvfb in Ubuntu 22.04 CI, including five views, Modrinth-only selection, official mode, custom dialogs and HTTPS hub.
+Discord IPC was tested with a local mock. A real Aurora Discord Application ID and actual Discord client verification remain pending. Russian/English cover the primary UI; some diagnostics and console messages remain Russian.
 
-Runtime production dependency audit: zero known vulnerabilities at verification time.
+Linux packaging and interface checks run in GitHub Actions. Actual Arch/Wayland verification on the user's computer remains pending. The previously tested Microsoft login and game installation paths are retained; CurseForge stays disabled pending approved application access.
 
-Not verified: actual Microsoft sign-in and licensed game launch through the official launcher (not installed on the current Windows computer), launch on an actual Arch/Wayland desktop, runtime graphics/audio on the user's hardware, always-on external hosting. Aurora hands off a profile; it does not claim the game itself has started or import official launcher tokens. Direct Aurora sign-in and CurseForge access remain disabled pending approval.
-
-CI: https://github.com/ffxlino/Aurora/actions/runs/38411267577
-Release: https://github.com/ffxlino/Aurora/releases/tag/v0.3.0
+Windows SHA256: 5291bbcb0089ac4f422f8630ead0d2a79e705142e93cda1e64a696fde124d0f7

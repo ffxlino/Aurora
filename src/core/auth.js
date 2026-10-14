@@ -2,10 +2,13 @@
 const fs=require('node:fs/promises');const path=require('node:path');
 const {atomic,readJson,json}=require('./util');
 class Accounts {
-  constructor(root,secure,emit){this.file=path.join(root,'account.bin');this.secure=secure;this.emit=emit;this.current=null;this.pending=false;}
-  async load(){try{this.current=JSON.parse(this.secure.decryptString(await fs.readFile(this.file)));}catch(e){if(e.code!=='ENOENT')this.emit('log','Не удалось прочитать сохранённый вход. Войдите повторно.');}return this.public();}
+  constructor(root,secure,emit){this.file=path.join(root,'account.bin');this.secure=secure;this.emit=emit;this.current=null;this.accounts=[];this.pending=false;}
+  async load(){try{const saved=JSON.parse(this.secure.decryptString(await fs.readFile(this.file)));this.accounts=Array.isArray(saved.accounts)?saved.accounts:(saved?.id?[saved]:[]);this.current=this.accounts.find(a=>a.id===saved.activeId)||(!Array.isArray(saved.accounts)?this.accounts[0]:null)||null;}catch(e){if(e.code!=='ENOENT')this.emit('log','Не удалось прочитать сохранённый вход. Войдите повторно.');}return this.public();}
   public(){return this.current?{name:this.current.name,id:this.current.id}:null;}
-  async save(){if(!this.secure.isEncryptionAvailable()||this.secure.getSelectedStorageBackend?.()==='basic_text')throw Error('Защищённое хранилище аккаунта недоступно');await atomic(this.file,this.secure.encryptString(JSON.stringify(this.current)));}
+  list(){return this.accounts.map(a=>({id:a.id,name:a.name,active:a.id===this.current?.id}));}
+  async save(){if(!this.secure.isEncryptionAvailable()||this.secure.getSelectedStorageBackend?.()==='basic_text')throw Error('Защищённое хранилище аккаунта недоступно');const list=this.accounts.filter(a=>a.id!==this.current?.id);if(this.current)list.push(this.current);await atomic(this.file,this.secure.encryptString(JSON.stringify({...this.current,format:2,activeId:this.current?.id||null,accounts:list})));this.accounts=list;}
+  changed(){this.emit('account',this.public());this.emit('accounts',this.list());}
+  async select(id){if(this.pending)throw Error('Заверши текущий вход');const next=this.accounts.find(a=>a.id===id);if(!next)throw Error('Аккаунт не найден');const old=this.current;this.generation=Symbol();this.current=next;try{await this.save();}catch(e){this.current=old;throw e;}this.changed();return this.public();}
   async oauth(data){const r=await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(data),signal:AbortSignal.timeout(30000)});const j=await r.json();if(!r.ok){const e=Error(j.error_description||j.error);e.code=j.error;throw e;}return j;}
   async exchange(ms,generation=this.generation){
     const post=(url,body)=>json(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)});
@@ -13,7 +16,7 @@ class Accounts {
     let xsts;try{xsts=await post('https://xsts.auth.xboxlive.com/xsts/authorize',{Properties:{SandboxId:'RETAIL',UserTokens:[xbox.Token]},RelyingParty:'rp://api.minecraftservices.com/',TokenType:'JWT'});}catch{throw Error('Xbox не разрешил вход. Проверьте Xbox-профиль, возрастные и семейные ограничения аккаунта.');}
     let mc;try{mc=await post('https://api.minecraftservices.com/authentication/login_with_xbox',{identityToken:`XBL3.0 x=${xsts.DisplayClaims.xui[0].uhs};${xsts.Token}`});}catch{throw Error('Minecraft API отклонил вход. Проверьте разрешение Minecraft API у вашего приложения Microsoft.');}
     let profile;try{profile=await json('https://api.minecraftservices.com/minecraft/profile',{headers:{Authorization:'Bearer '+mc.access_token}});}catch{throw Error('Не найден профиль Minecraft Java. Нужна купленная Java Edition и созданное имя игрока.');}
-    if(generation!==this.generation)throw Error('Вход отменён');this.current={id:profile.id,name:profile.name,token:mc.access_token,refresh:ms.refresh_token||this.current?.refresh,expires:Date.now()+mc.expires_in*1000};await this.save();this.emit('account',this.public());return this.public();
+    if(generation!==this.generation)throw Error('Вход отменён');const previous=this.current;this.current={id:profile.id,name:profile.name,skinUrl:require('./avatar').skinURL((profile.skins||[]).find(s=>s.state==='ACTIVE')?.url||profile.skins?.[0]?.url),token:mc.access_token,refresh:ms.refresh_token||this.accounts.find(a=>a.id===profile.id)?.refresh,expires:Date.now()+mc.expires_in*1000};try{await this.save();}catch(e){this.current=previous;throw e;}this.changed();return this.public();
   }
   async login(clientId){
     if(this.pending)throw Error('Вход уже выполняется');if(!/^[a-f0-9-]{36}$/i.test(clientId))throw Error('Укажите Client ID приложения Microsoft в настройках');
@@ -26,6 +29,6 @@ class Accounts {
   }
   async token(clientId){if(!this.current)throw Error('Сначала войдите в Microsoft');if(this.current.expires<Date.now()+120000){const ms=await this.oauth({client_id:clientId,grant_type:'refresh_token',refresh_token:this.current.refresh,scope:'XboxLive.signin offline_access'});await this.exchange(ms);}return this.current;}
   cancel(){this.generation=null;this.emit('device',null);}
-  async logout(){this.generation=null;this.current=null;await fs.rm(this.file,{force:true});this.emit('account',null);}
+  async logout(){this.cancel();const old=this.current,list=this.accounts;this.accounts=list.filter(a=>a.id!==old?.id);this.current=null;try{await this.save();}catch(e){this.current=old;this.accounts=list;throw e;}this.changed();}
 }
 module.exports={Accounts};

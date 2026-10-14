@@ -74,4 +74,6 @@ async function files(root, prefix='') {
   }return out;
 }
 function shareable(name) { return /^(mods|config|resourcepacks|shaderpacks|defaultconfigs|kubejs)\//.test(name) && !/\.(exe|dll|bat|cmd|ps1|vbs|lnk|com|scr)$/i.test(name); }
-module.exports={setDownloads,safePath,noLinks,atomic,readJson,hash,approvedURL,request,json,download,extract,files,shareable};
+async function scopedFiles(root,scopes){const result=[];for(const scope of scopes){const target=safePath(root,scope);await noLinks(root,target);const st=await fs.lstat(target).catch(e=>{if(e.code==='ENOENT')return null;throw e;});if(!st||st.isSymbolicLink())continue;if(st.isDirectory())result.push(...await files(root,scope));else if(st.isFile())result.push({path:scope,size:st.size,modified:st.mtime.toISOString()});}return result;}
+const resourceFiles=root=>scopedFiles(root,['mods','config','resourcepacks','shaderpacks','defaultconfigs','kubejs']);
+module.exports={scopedFiles,resourceFiles,setDownloads,safePath,noLinks,atomic,readJson,hash,approvedURL,request,json,download,extract,files,shareable};

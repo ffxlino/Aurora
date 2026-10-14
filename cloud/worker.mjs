@@ -1,3 +1,5 @@
+import {socialRoute} from './social.mjs';
+import {archiveRoute} from './single-archive.mjs';
 import {publicPackages,packageRoute,packageStaging} from './github-hub.mjs';
 import {createHash,randomBytes,timingSafeEqual} from 'node:crypto';
 const CHUNK=1024*1024,MAX_FILE=512*1024*1024,MAX_PACK=4_000_000_000,MAX_STORAGE=4_500_000_000;
@@ -26,7 +28,7 @@ export class HubIndex {
     memberId=member?.id;role=member?.role||'reader';}
    const token=randomBytes(32).toString('hex'),session={...identity,role,memberId,expires:now+3600000};await this.store.put('session:'+sum(Buffer.from(token)),session);await this.alarmAt(now+3600000);return answer({token,identity,role,expires:session.expires,capabilities:{chunked:true}});
   }
-  const session=await this.authenticate(req);const packageResult=await packageRoute(this,req,session);if(packageResult)return packageResult;
+  const session=await this.authenticate(req);const socialResult=await socialRoute(this,req,session);if(socialResult)return socialResult;const archiveResult=await archiveRoute(this,req,session);if(archiveResult)return archiveResult;const packageResult=await packageRoute(this,req,session);if(packageResult)return packageResult;
   if(url.pathname==='/state')return answer({...await this.state(),role:session.role,capabilities:{chunked:true},limits:{pack:MAX_PACK,storage:MAX_STORAGE}});
   if(url.pathname==='/members'){
    if(session.role!=='admin')error(403,'Только администратор управляет участниками');if(req.method==='GET')return answer((await this.store.get('members')||[]).map(({tokenHash,...m})=>m));

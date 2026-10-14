@@ -1,14 +1,13 @@
-# Validation — Aurora 0.4.1
+# Validation — Aurora 0.10.0
 
-34 launcher tests and 4 cloud-server tests passed locally and in Windows/Linux CI. Server tests use native workerd via Miniflare, including the actual Aurora HubClient moving an existing pack from a previous hub to a fresh cloud hub, publishing chunks and pulling updates while retaining local worlds.
+86 launcher tests and 8 cloud tests passed locally on Windows; one Linux-only AppImage test was skipped. The portable Windows EXE passed the isolated fresh-profile interface checks. All 55 packaged source files matched the tested sources. No real Minecraft game launch is claimed for this release.
 
-The final Windows portable EXE passed six-view interface tests, custom confirmation acceptance/cancellation, settings/backup/decoration/diagnostic controls, Modrinth resource cards, mod toggling and manual environment selection, HTTPS admin connection and close confirmation. No horizontal overflow in tested views.
+SFTP was checked against a local server with reordered read responses and through a short read-only request to the user's real Bisect server. Full large-pack comparison, the newly created Bisect API key, and actual CPU/RAM/TPS remain user verification tasks. The key is not present in the source or release binary.
 
-Linux AppImage and pacman packaging passed in Ubuntu 22.04 CI. The packaged Linux interface passed six-view tests. A real Minecraft 1.20.1 / Fabric 0.16.10 / Java 17 installation generated the official launcher profile and successfully invoked downloaded Linux Java. Windows real installation was previously validated in 0.3; no new Windows licensed game launch is claimed.
+The friends Worker API passed tests for reciprocal requests, privacy, and immediate hiding of presence and was deployed compatibly. No requests were sent to actual users. Friend identity belongs to a personal community invitation; this is not a universal verified Microsoft social identity.
 
-Cloud worker dry-run bundle passed. The owner confirmed Workers Free without a payment card. Live deployment succeeded: owner authentication, reader invitation and immediate session revocation passed; chunk upload, immutable checked blobs and refusal of false checksums passed on the remote server. Owner credentials are encrypted in the local Aurora profile and a fresh process decrypted them and obtained administrator access. The server remains without a published user pack; temporary test staging expires automatically after 24 hours. R2 and paid resources are absent from the configuration. A 4 GB production upload has not been tested.
+Discord IPC was tested with a local mock. A real Aurora Discord Application ID and actual Discord client verification remain pending. Russian/English cover the primary UI; some diagnostics and console messages remain Russian.
 
-Not verified: licensed game start and Microsoft sign-in through the official launcher on this Windows machine (the official launcher is not installed), actual Arch/Wayland desktop, hardware-specific graphics/audio. Direct Microsoft sign-in in Aurora and CurseForge remain disabled pending approval. Aurora opens the prepared profile in the official launcher; the user signs in and presses Play there.
+Linux packaging and interface checks run in GitHub Actions. Actual Arch/Wayland verification on the user's computer remains pending. The previously tested Microsoft login and game installation paths are retained; CurseForge stays disabled pending approved application access.
 
-CI: https://github.com/ffxlino/Aurora/actions/runs/38437018091
-Release: https://github.com/ffxlino/Aurora/releases/tag/v0.4.1
+Windows SHA256: 5291bbcb0089ac4f422f8630ead0d2a79e705142e93cda1e64a696fde124d0f7

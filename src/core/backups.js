@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
-const {atomic,readJson,files,safePath,noLinks,hash}=require('./util');
-const SCOPES=['mods','config','resourcepacks','shaderpacks','defaultconfigs','kubejs','options.txt','servers.dat'];
+const {atomic,readJson,files,scopedFiles,safePath,noLinks,hash}=require('./util');
+const SCOPES=['mods','config','resourcepacks','shaderpacks','defaultconfigs','kubejs','options.txt','servers.dat','screenshots'];
 async function digest(file){const h=crypto.createHash('sha256');for await(const chunk of require('node:fs').createReadStream(file))h.update(chunk);return h.digest('hex');}
 const recordId=id=>{if(!/^[a-zA-Z0-9_-]{1,100}$/.test(id))throw Error('Неверный ID копии');return id;};
 class Backups {
@@ -9,8 +9,8 @@ class Backups {
  dir(id,key){this.packs.dir(id);return safePath(path.join(this.root,id),recordId(key));}
  async list(id){await this.packs.get(id);const root=path.join(this.root,id);const entries=await fs.readdir(root).catch(e=>{if(e.code==='ENOENT')return [];throw e;});const result=[];for(const key of entries){if(!/^[a-zA-Z0-9_-]{1,100}$/.test(key))continue;const m=await readJson(path.join(this.dir(id,key),'manifest.json'),null);if(m?.id===key&&m.packId===id)result.push({id:key,date:m.date,label:m.label,worlds:m.scopes.includes('saves'),size:m.files.reduce((n,f)=>n+f.size,0),count:m.files.length});}return result.sort((a,b)=>b.date.localeCompare(a.date));}
  async create(id,{worlds=false,label='Ручная копия'}={}){
-  const pack=await this.packs.get(id),game=this.packs.dir(id),scopes=worlds?[...SCOPES,'saves']:SCOPES;
-  const key=Date.now()+'-'+crypto.randomUUID(),dir=this.dir(id,key),selected=(await files(game)).filter(f=>scopes.some(s=>f.path===s||f.path.startsWith(s+'/'))),saved=[];
+  const pack=await this.packs.get(id),game=this.packs.dir(id),base=pack.launchSettings?.backupScopes?.filter(s=>s!=='saves')||SCOPES,scopes=worlds?[...base,'saves']:base;
+  const key=Date.now()+'-'+crypto.randomUUID(),dir=this.dir(id,key),selected=await scopedFiles(game,scopes),saved=[];
   let done=0;for(const f of selected){const from=safePath(game,f.path),to=safePath(path.join(dir,'game'),f.path);await noLinks(game,from);await fs.mkdir(path.dirname(to),{recursive:true});await fs.copyFile(from,to);saved.push({...f,hash:await digest(to)});if(++done%20===0||done===selected.length)this.packs.emit('progress',{label:'Резервная копия',current:done,total:selected.length});}
   const metadata={};for(const name of ['resources.json','installed-mods.json'])metadata[name]=await readJson(path.join(this.packs.root,'instances',id,name),{});
   await atomic(path.join(dir,'manifest.json'),JSON.stringify({id:key,packId:id,date:new Date().toISOString(),label:String(label).slice(0,100),scopes,files:saved,pack,metadata},null,2));

@@ -1,6 +1,6 @@
 {
   "name": "aurora-launcher",
-  "version": "0.6.0",
+  "version": "0.10.0",
   "description": "Aurora — Minecraft launcher and private modpack hub",
   "main": "src/main.js",
   "author": {
@@ -17,8 +17,12 @@
   },
   "dependencies": {
     "adm-zip": "^0.6.1",
+    "basic-ftp": "^6.2.3",
     "selfsigned": "^5.5.0",
-    "smol-toml": "^1.9.1"
+    "smol-toml": "^1.9.1",
+    "ssh2": "^1.17.0",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
   },
   "devDependencies": {
     "electron": "44.7.0",
@@ -80,7 +84,8 @@
         "alsa-lib",
         "mesa"
       ]
-    }
+    },
+    "npmRebuild": false
   },
   "homepage": "https://ffxlino.github.io/Aurora/"
 }
