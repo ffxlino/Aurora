@@ -53,17 +53,6 @@ jobs:
       - run: npm run dist:linux -- --publish never
       - name: Verify Linux interface
         run: xvfb-run -a dist/linux-unpacked/aurora --no-sandbox --smoke
-      - name: Install and verify the pacman package on Arch Linux
-        run: |
-          docker run --rm --mount type=bind,source="$PWD/dist",target=/packages,readonly archlinux:base bash -euc '
-            pacman -Syu --noconfirm
-            pacman -S --needed --noconfirm xorg-server-xvfb xorg-xauth dbus libsecret
-            pacman -U --noconfirm /packages/Aurora-*-Linux-x64.pacman
-            command -v aurora
-            mkdir -p /work
-            cd /work
-            xvfb-run -a aurora --no-sandbox --smoke
-          '
       - uses: actions/upload-artifact@v4
         with:
           name: Aurora-Linux-x64
@@ -72,4 +61,32 @@ jobs:
             dist/Aurora-*.pacman
             artifacts/smoke.json
             artifacts/official-install-result.json
+          if-no-files-found: error
+  arch:
+    needs: linux
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Aurora-Linux-x64
+          path: artifacts-linux
+      - name: Install and verify the pacman package on Arch Linux
+        run: |
+          mkdir -p arch-validation
+          docker run --rm --shm-size=1g --mount type=bind,source="$PWD/artifacts-linux",target=/packages,readonly --mount type=bind,source="$PWD/arch-validation",target=/results archlinux:base bash -euc '
+            pacman -Syu --noconfirm
+            pacman -S --needed --noconfirm xorg-server-xvfb xorg-xauth dbus libsecret ttf-dejavu
+            pacman -U --noconfirm /packages/dist/Aurora-*-Linux-x64.pacman
+            command -v aurora
+            mkdir -p /work
+            cd /work
+            dbus-run-session -- xvfb-run -a aurora --no-sandbox --disable-gpu --disable-dev-shm-usage --smoke
+            cp /work/artifacts/smoke.json /results/smoke.json
+            cp /work/artifacts/aurora-0.12-library.png /results/library.png
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aurora-Arch-validation
+          path: arch-validation
           if-no-files-found: error
