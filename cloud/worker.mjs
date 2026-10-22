@@ -1,3 +1,4 @@
+import {catalogRoute} from './catalog.mjs';
 import {socialRoute} from './social.mjs';
 import {archiveRoute} from './single-archive.mjs';
 import {publicPackages,packageRoute,packageStaging} from './github-hub.mjs';
@@ -18,7 +19,7 @@ export class HubIndex {
  async authenticate(req){const token=(req.headers.get('authorization')||'').replace(/^Bearer /,'');if(!/^[a-f0-9]{64}$/.test(token))error(401,'Войди на сервер');const session=await this.store.get('session:'+sum(Buffer.from(token)));if(!session||session.expires<Date.now())error(401,'Войди на сервер заново');if(session.memberId){const members=await this.store.get('members')||[];const m=members.find(m=>m.id===session.memberId);if(!m||m.revoked||m.expires&&m.expires<Date.now())error(403,'Доступ отозван');session.role=m.role;}return session;}
  async fetch(req){try{return await this.route(req);}catch(e){return Response.json({error:e.message},{status:e.status||400});}}
  async state(){return await this.store.get('state')||{revision:0,manifest:null,history:[]};}
- async route(req){const url=new URL(req.url);const publicResult=await publicPackages(this,req);if(publicResult)return publicResult;
+ async route(req){const url=new URL(req.url);const catalogResult=await catalogRoute(this,req);if(catalogResult)return catalogResult;const publicResult=await publicPackages(this,req);if(publicResult)return publicResult;
   if(url.pathname==='/session'&&req.method==='POST'){
    const ip=req.headers.get('cf-connecting-ip')||'local',now=Date.now(),rate=this.rates.get(ip)||{count:0,until:now+60000};if(rate.until<now){rate.count=0;rate.until=now+60000;}if(++rate.count>8)error(429,'Слишком много попыток входа');this.rates.set(ip,rate);if(this.rates.size>2000)for(const[k,v]of this.rates)if(v.until<now)this.rates.delete(k);
    const data=await input(req,20000);let identity,role,memberId;
@@ -56,3 +57,4 @@ export class FileBlob {
 }
 export default {async fetch(req,env){try{const url=new URL(req.url),hub=env.HUB.get(env.HUB.idFromName('primary'));if(['/check','/uploaded'].includes(url.pathname))error(404,'Маршрут не найден');if(/^\/(?:upload|blob)\/[a-f0-9]{64}(?:\/\d+|\/finish)?$/.test(url.pathname)){const key=url.pathname.split('/')[2],write=req.method!=='GET';const headers=new Headers(req.headers);headers.delete('x-aurora-size');const check=await hub.fetch('https://internal/check?hash='+key+'&write='+write,{headers});if(!check.ok)return check;const reservation=await check.json();headers.set('x-aurora-size',String(reservation.size));const blob=env.BLOBS.get(env.BLOBS.idFromName(key));const result=await blob.fetch(new Request(req,{headers}));if(result.ok&&url.pathname.endsWith('/finish')){const marked=await hub.fetch('https://internal/uploaded',{method:'POST',headers,body:JSON.stringify({hash:key})});if(!marked.ok)return marked;}return result;}return hub.fetch(req);}catch(e){return Response.json({error:e.message},{status:e.status||400});}}};
 export {manifest};
+

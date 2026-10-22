@@ -11,6 +11,7 @@ class Backups {
  async create(id,{worlds=false,label='Ручная копия'}={}){
   const pack=await this.packs.get(id),game=this.packs.dir(id),base=pack.launchSettings?.backupScopes?.filter(s=>s!=='saves')||SCOPES,scopes=worlds?[...base,'saves']:base;
   const key=Date.now()+'-'+crypto.randomUUID(),dir=this.dir(id,key),selected=await scopedFiles(game,scopes),saved=[];
+  await require('./disk-space').requireSpace(this.root,selected.reduce((n,f)=>n+f.size,0)+1024**2);
   let done=0;for(const f of selected){const from=safePath(game,f.path),to=safePath(path.join(dir,'game'),f.path);await noLinks(game,from);await fs.mkdir(path.dirname(to),{recursive:true});await fs.copyFile(from,to);saved.push({...f,hash:await digest(to)});if(++done%20===0||done===selected.length)this.packs.emit('progress',{label:'Резервная копия',current:done,total:selected.length});}
   const metadata={};for(const name of ['resources.json','installed-mods.json'])metadata[name]=await readJson(path.join(this.packs.root,'instances',id,name),{});
   await atomic(path.join(dir,'manifest.json'),JSON.stringify({id:key,packId:id,date:new Date().toISOString(),label:String(label).slice(0,100),scopes,files:saved,pack,metadata},null,2));
@@ -30,7 +31,7 @@ class Backups {
    for(const name of ['resources.json','installed-mods.json'])await atomic(path.join(this.packs.root,'instances',id,name),JSON.stringify(m.metadata?.[name]||{}));
    const current=await this.packs.get(id);await this.packs.save({...current,version:m.pack.version,loader:m.pack.loader,loaderVersion:m.pack.loaderVersion,launchSettings:m.pack.launchSettings});
    await this.packs.log(id,'Восстановление копии',m.files.map(f=>f.path));return {restored:true,safetyBackup:before};
-  }catch(e){for(const entry of moved.reverse()){if(entry.placed)await fs.rm(entry.target,{recursive:true,force:true});if(entry.had)await fs.rename(entry.old,entry.target);}for(const name of ['resources.json','installed-mods.json'])await atomic(path.join(this.packs.root,'instances',id,name),JSON.stringify(originalMetadata[name]));await this.packs.save(originalPack).catch(()=>{});throw e;}finally{await fs.rm(stage,{recursive:true,force:true});}
+  }catch(e){for(const entry of moved.reverse()){if(entry.placed)await fs.rm(entry.target,{recursive:true,force:true});if(entry.had)await fs.rename(entry.old,entry.target);}if(moved.length){for(const name of ['resources.json','installed-mods.json'])await atomic(path.join(this.packs.root,'instances',id,name),JSON.stringify(originalMetadata[name]));await this.packs.save(originalPack).catch(()=>{});}throw e;}finally{await fs.rm(stage,{recursive:true,force:true});}
  }
 }
 module.exports={Backups,SCOPES};

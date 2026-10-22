@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "keys": [
+    {
+      "id": "ed25519-d082fbe27323c23874908420",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAycjfk8AghOWqa1KUq+yq4KeNZpYTmA/ikDrstKTt0WM=\n-----END PUBLIC KEY-----\n"
+    }
+  ]
+}

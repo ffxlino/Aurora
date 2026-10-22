@@ -11,3 +11,35 @@ test('sync rolls file changes back if saving the new pack revision fails',async 
 
 test('bundled configs update from a checked mrpack without touching local worlds',async t=>{const {sharing,pack,dir}=await fixture(t),zip=new (require('adm-zip'))();zip.addFile('overrides/config/a.json',Buffer.from('updated'));const archive=zip.toBuffer(),value=record(pack,'updated');value.manifest.files[0].inline=true;value.manifest.files[0].download='';value.mrpack='https://github.com/ffxlino/Aurora-Packs/releases/download/test/pack.mrpack';value.mrpackSha512=createDigest(archive);sharing.public=async()=>value;const previous=global.fetch;global.fetch=async()=>new Response(archive);t.after(()=>global.fetch=previous);await sharing.sync(pack.id);assert.equal(await fs.readFile(path.join(dir,'config/a.json'),'utf8'),'updated');assert.equal(await fs.readFile(path.join(dir,'saves/world/level.dat'),'utf8'),'local world');});
 function createDigest(bytes){return crypto.createHash('sha512').update(bytes).digest('hex');}
+
+test('same revision restores missing files from the single mrpack instead of trusting saved revision and content ID',async t=>{
+ const {sharing,pack,packs,dir,backups}=await fixture(t),zip=new (require('adm-zip'))();
+ zip.addFile('overrides/mods/example.jar',Buffer.from('published mod'));
+ zip.addFile('overrides/config/a.json',Buffer.from('original'));
+ const archive=zip.toBuffer(),value=record(pack,'original',1);
+ value.storage='single-mrpack';value.scope='mods-config';value.contentId='same-published-content';
+ value.mrpack='https://github.com/ffxlino/Aurora-Packs/releases/download/test/pack.mrpack';value.mrpackSha512=createDigest(archive);
+ value.manifest.files=[{path:'mods/example.jar',...digest('published mod'),download:'',inline:true},{...value.manifest.files[0],download:'',inline:true}];
+ pack.remote={...pack.remote,contentId:value.contentId,files:value.manifest.files,scope:value.scope};await packs.save(pack);
+ await fs.rm(path.join(dir,'config/a.json'));await atomic(path.join(dir,'mods/local-only.jar'),'personal mod');
+ sharing.public=async()=>value;let requests=0;const previous=global.fetch;global.fetch=async()=>{requests++;return new Response(archive);};t.after(()=>global.fetch=previous);
+ const result=await sharing.sync(pack.id);assert.equal(result.updated,true);assert.equal(requests,1);
+ assert.equal(await fs.readFile(path.join(dir,'mods/example.jar'),'utf8'),'published mod');assert.equal(await fs.readFile(path.join(dir,'config/a.json'),'utf8'),'original');
+ assert.equal(await fs.readFile(path.join(dir,'mods/local-only.jar'),'utf8'),'personal mod');assert.equal(await fs.readFile(path.join(dir,'saves/world/level.dat'),'utf8'),'local world');
+ const count=(await backups.list(pack.id)).length;assert.equal(count,1);assert.equal((await sharing.sync(pack.id)).updated,false);assert.equal(requests,1);assert.equal((await backups.list(pack.id)).length,count);
+});
+
+test('same revision and content ID still detect changed files and restore only after confirmation',async t=>{
+ const {sharing,pack,packs,dir,backups}=await fixture(t),value=record(pack,'original',1);value.contentId='unchanged-identity';pack.remote.contentId=value.contentId;await packs.save(pack);
+ await atomic(path.join(dir,'config/a.json'),'personal');sharing.public=async()=>value;
+ const pending=await sharing.sync(pack.id);assert.deepEqual(pending.conflicts,['config/a.json']);assert.equal(pending.revision,1);assert.equal(await fs.readFile(path.join(dir,'config/a.json'),'utf8'),'personal');assert.equal((await backups.list(pack.id)).length,0);
+ const previous=global.fetch;global.fetch=async()=>new Response('original');t.after(()=>global.fetch=previous);
+ await sharing.sync(pack.id,true,pending.revision);assert.equal(await fs.readFile(path.join(dir,'config/a.json'),'utf8'),'original');
+ const saved=await backups.list(pack.id);assert.equal(saved.length,1);await backups.restore(pack.id,saved[0].id);assert.equal(await fs.readFile(path.join(dir,'config/a.json'),'utf8'),'personal');
+});
+
+test('same content ID on a newer revision verifies local bytes before accepting metadata',async t=>{
+ const {sharing,pack,packs,dir}=await fixture(t),value=record(pack,'original',2);value.contentId='unchanged-identity';pack.remote.contentId=value.contentId;await packs.save(pack);await fs.rm(path.join(dir,'config/a.json'));sharing.public=async()=>value;
+ const previous=global.fetch;global.fetch=async()=>new Response('corrupted');t.after(()=>global.fetch=previous);
+ await assert.rejects(()=>sharing.sync(pack.id),/сумма/);assert.equal((await packs.get(pack.id)).remote.revision,1);await assert.rejects(()=>fs.access(path.join(dir,'config/a.json')));
+});

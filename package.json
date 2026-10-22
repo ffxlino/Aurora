@@ -1,10 +1,10 @@
 {
   "name": "aurora-launcher",
-  "version": "0.10.0",
+  "version": "0.14.3",
   "description": "Aurora — Minecraft launcher and private modpack hub",
   "main": "src/main.js",
   "author": {
-    "name": "Aurora contributors",
+    "name": "Fish Fox Lino",
     "email": "ffxlino@users.noreply.github.com"
   },
   "license": "MIT",
@@ -13,7 +13,12 @@
     "test": "node --test test/*.test.js",
     "dist": "electron-builder --win portable --x64",
     "dist:linux": "electron-builder --linux AppImage pacman --x64",
-    "verify:engine": "node scripts/verify-engine.cjs"
+    "verify:engine": "node scripts/verify-engine.cjs",
+    "content:build": "node scripts/prepare-content.cjs",
+    "predist": "npm run content:build",
+    "predist:linux": "npm run content:build",
+    "release:key": "node scripts/release-key.cjs",
+    "release:sign": "node scripts/sign-update.cjs"
   },
   "dependencies": {
     "adm-zip": "^0.6.1",
@@ -39,7 +44,10 @@
       "src/**/*",
       "package.json",
       "README.md",
-      "LICENSE"
+      "LICENSE",
+      "NOTICE",
+      "THIRD_PARTY_NOTICES.md",
+      "SBOM.cdx.json"
     ],
     "win": {
       "target": "portable",
@@ -85,7 +93,11 @@
         "mesa"
       ]
     },
-    "npmRebuild": false
+    "npmRebuild": false,
+    "copyright": "Copyright © 2026 Fish Fox Lino and Aurora contributors"
   },
-  "homepage": "https://ffxlino.github.io/Aurora/"
+  "homepage": "https://ffxlino.github.io/Aurora/",
+  "overrides": {
+    "global-agent": "4.1.3"
+  }
 }

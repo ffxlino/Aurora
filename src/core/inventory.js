@@ -49,7 +49,7 @@ async function identifyInventory(catalog,id) {
       const result=await catalog.json('https://api.modrinth.com/v2/version_files',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:batch.map(f=>f.sha1),algorithm:'sha1'})});
       await pool(batch.filter(item=>result[item.sha1]),async item=>{const v=result[item.sha1],p=await project('modrinth',v.project_id);const {sideOf}=require('./catalog');const side=sideOf(v);additions[item.sha1]={...p,version:v.name,versionId:v.id,path:item.path.replace(/\.disabled$/,''),side:side==='unknown'?p.side:side,sideEvidence:'Modrinth · версия',provenance:item.source==='modrinth'?'imported':'identified'};matches.add(item.sha1);recognized++;},4);
     } catch(e){warnings.push('Modrinth: '+e.message);}
-    if(await catalog.getKey()){
+    if(catalog.cfProxy||await catalog.getKey()){
       const remaining=batch.filter(i=>!matches.has(i.sha1)||i.source==='curseforge');
       if(remaining.length)try{await pool(remaining,async item=>{if(!Number.isInteger(item.fingerprint))item.fingerprint=fingerprint(await fs.readFile(safePath(catalog.packs.dir(id),item.path)));},catalog.packs.scanLimit||2);
         const {data}=await catalog.cf('/fingerprints/432',{fingerprints:remaining.map(f=>f.fingerprint)});

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test test.mjs"
+    "test": "node --test test.mjs catalog.test.mjs"
   },
   "devDependencies": {
     "@napi-rs/keyring": "^1.3.0",

@@ -20,8 +20,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - run: npm run content:build
       - run: npm test
       - run: npm ci --prefix cloud
+      - run: npm run content:build
       - run: npm test --prefix cloud
       - run: npm run dist -- --publish never
       - uses: actions/upload-artifact@v4
@@ -40,13 +42,26 @@ jobs:
           cache: npm
       - run: sudo apt-get update && sudo apt-get install -y libarchive-tools libfuse2 xvfb libgtk-3-0 libnss3 libasound2
       - run: npm ci
+      - run: npm run content:build
       - run: npm test
       - run: npm ci --prefix cloud
+      - run: npm run content:build
       - run: npm test --prefix cloud
       - run: npm run verify:engine
       - run: npm run dist:linux -- --publish never
       - name: Verify Linux interface
         run: xvfb-run -a dist/linux-unpacked/aurora --no-sandbox --smoke
+      - name: Install and verify the pacman package on Arch Linux
+        run: |
+          docker run --rm --mount type=bind,source="$PWD/dist",target=/packages,readonly archlinux:base bash -euc '
+            pacman -Syu --noconfirm
+            pacman -S --needed --noconfirm xorg-server-xvfb xorg-xauth dbus libsecret
+            pacman -U --noconfirm /packages/Aurora-*-Linux-x64.pacman
+            command -v aurora
+            mkdir -p /work
+            cd /work
+            xvfb-run -a aurora --no-sandbox --smoke
+          '
       - uses: actions/upload-artifact@v4
         with:
           name: Aurora-Linux-x64

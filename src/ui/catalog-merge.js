@@ -1,0 +1,7 @@
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.AuroraCatalog=factory();})(typeof globalThis!=='undefined'?globalThis:this,()=>{
+ const name=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+ const authors=p=>new Set(String(p.author||'').split(/,|&|\s+and\s+/i).map(name).filter(Boolean));
+ function title(value){const text=String(value||'').trim(),m=/^(.*?)\s*\(([A-Z0-9]{2,8})\)$/.exec(text);if(m){const initials=(m[1].match(/[\p{L}\p{N}]+/gu)||[]).map(w=>w[0]).join('');if(name(initials)===name(m[2]))return name(m[1]);}return name(text);}function same(a,b){if(a.type!==b.type||!title(a.title)||title(a.title)!==title(b.title))return false;const aa=authors(a),bb=authors(b);return aa.size>0&&[...aa].some(n=>bb.has(n));}
+ function merge(items){const groups=[];for(const item of items){for(const entry of item.alternatives||[item]){const clean={...entry,...(item.installSource?{installSource:item.installSource}:{})};delete clean.alternatives;const exact=groups.find(g=>g.some(p=>p.source===clean.source&&p.projectId===clean.projectId));if(exact){if(item.installSource)for(const p of exact)p.installSource=item.installSource;continue;}const group=groups.find(g=>!g.some(p=>p.source===clean.source)&&g.some(p=>same(p,clean)));if(group)group.push(clean);else groups.push([clean]);}}return groups.map(g=>{const primary=g.find(p=>p.source==='modrinth')||g[0];return g.length>1?{...primary,alternatives:g}:primary;});}
+ return {merge,same};
+});

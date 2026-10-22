@@ -1,0 +1,30 @@
+name: Ошибка / Bug report
+description: Воспроизводимая проблема Aurora. Не добавляй секреты.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Для уязвимостей сначала прочитай SECURITY.md. Не публикуй пароли, токены и полный профиль."
+  - type: input
+    id: versions
+    attributes:
+      label: Версии Aurora, ОС, Minecraft и загрузчика
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемый и фактический результат
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Просмотренный очищенный отчёт или скриншот
+      description: Сначала удали персональные данные и секреты.

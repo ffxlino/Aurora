@@ -2,8 +2,10 @@
   "microsoftClientId": "644a33e0-cf4b-4b46-8f94-b94a93733b32",
   "launchMode": "direct",
   "enabledProviders": [
-    "modrinth"
+    "modrinth",
+    "curseforge"
   ],
   "microsoftApproved": true,
-  "cloudHubUrl": "https://aurora-private-hub.sorlux121.workers.dev"
+  "cloudHubUrl": "https://aurora-private-hub.sorlux121.workers.dev",
+  "curseforgeProxy": "https://aurora-private-hub.sorlux121.workers.dev"
 }

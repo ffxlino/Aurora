@@ -40,12 +40,12 @@ function validateRequest(r) {
 class Catalog {
   constructor(packs, getKey, emit, network={}) {
     this.packs=packs;this.getKey=getKey;this.emit=emit;this.json=network.json||json;this.fetch=network.fetch||fetch;this.download=network.download||download;
-    this.projectCache=new Map();this.plans=new Map();this.inventoryPending=new Map();
+    this.cfProxy=network.cfProxy||null;if(this.cfProxy){const u=new URL(this.cfProxy);if(u.protocol!=='https:'||u.username||u.password||u.pathname!=='/'||u.search||u.hash)throw Error('Неверный сервер каталога');this.cfProxy=u.origin;}this.projectCache=new Map();this.plans=new Map();this.inventoryPending=new Map();
   }
   async cf(route, body) {
-    const key=await this.getKey();if(!key)throw Error('Добавьте CurseForge API key в настройках, чтобы открыть этот источник');
-    const response=await this.fetch('https://api.curseforge.com/v1'+route,{method:body?'POST':'GET',headers:{'x-api-key':key,'Accept':'application/json',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000),redirect:'error'});
-    if(!response.ok)throw Error(response.status===403||response.status===401?'CurseForge не принял API key. Проверьте ключ в настройках.':`CurseForge: HTTP ${response.status}`);
+    const key=this.cfProxy?'':await this.getKey();if(!this.cfProxy&&!key)throw Error('Добавьте CurseForge API key в настройках, чтобы открыть этот источник');
+    const response=await this.fetch(this.cfProxy?this.cfProxy+'/catalog/curseforge?route='+encodeURIComponent(route):'https://api.curseforge.com/v1'+route,{method:body?'POST':'GET',headers:{...(this.cfProxy?{}:{'x-api-key':key}),'Accept':'application/json',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000),redirect:'error'});
+    if(!response.ok&&this.cfProxy){let info;try{info=await response.json();}catch{}throw Error(typeof info?.error==='string'?info.error:'Сервер каталога: HTTP '+response.status);}if(!response.ok)throw Error(response.status===403||response.status===401?'CurseForge не принял API key. Проверьте ключ в настройках.':`CurseForge: HTTP ${response.status}`);
     return response.json();
   }
   async classes() {
@@ -76,7 +76,7 @@ class Catalog {
     }));
     const warnings=[],pages=[];results.forEach((r,i)=>{if(r.status==='fulfilled')pages.push(r.value);else warnings.push({source:providers[i],message:r.reason.message});});
     const hits=[];for(let i=0;i<limit;i++)for(const p of pages)if(p.hits[i])hits.push(p.hits[i]);
-    return {hits,warnings,hasMore:pages.some(p=>p.more)&&offset+limit<=9900,nextOffset:offset+limit,totals:pages.reduce((n,p)=>n+p.total,0)};
+    return {hits:require('../ui/catalog-merge').merge(hits),pageTotal:Math.max(0,...pages.map(p=>p.total)),warnings,hasMore:pages.some(p=>p.more)&&offset+limit<=9900,nextOffset:offset+limit,totals:pages.reduce((n,p)=>n+p.total,0)};
   }
   async categoryList(source,type){if(!TYPES.includes(type)||!['modrinth','curseforge'].includes(source))throw Error('Неверный каталог');this.categoryCache||=new Map();const key=source+':'+type,cached=this.categoryCache.get(key);if(cached&&cached.expires>Date.now())return cached.data;let data;if(source==='modrinth'){data=(await this.json('https://api.modrinth.com/v2/tag/category')).filter(c=>c.project_type===type).map(c=>({slug:c.name,title:c.name}));}else{const classes=await this.classes();if(!classes[type])return [];data=(await this.cf('/categories?gameId=432&classId='+classes[type])).data.filter(c=>!c.isClass).map(c=>({slug:c.slug,title:c.name,id:c.id}));}this.categoryCache.set(key,{data,expires:Date.now()+3600000});return data;}
   async project(source,id) {
@@ -99,7 +99,7 @@ class Catalog {
       const q=new URLSearchParams();if(pack){q.set('game_versions',JSON.stringify([pack.version]));if(p.type==='mod')q.set('loaders',JSON.stringify([pack.loader]));if(p.type==='datapack')q.set('loaders',JSON.stringify(['datapack']));}
       const list=await this.json(`https://api.modrinth.com/v2/project/${encodeURIComponent(r.projectId)}/version?${q}`);
       const compatibleList=list.map(v=>this.mrVersion(v,p)).filter(v=>compatible(v,pack,p.type)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
-      return {project:p,versions:compatibleList.slice(offset,offset+50),hasMore:offset+50<compatibleList.length,nextOffset:offset+50};
+      return {project:p,versions:compatibleList.slice(offset,offset+50),...(r.all?{allVersions:compatibleList}:{}),hasMore:offset+50<compatibleList.length,nextOffset:offset+50};
     }
     const q=new URLSearchParams({pageSize:'50',index:String(offset)});if(pack){q.set('gameVersion',pack.version);if(p.type==='mod'){if(!LOADER_IDS[pack.loader])return {project:p,versions:[],hasMore:false};q.set('modLoaderType',LOADER_IDS[pack.loader]);}}
     const data=await this.cf(`/mods/${encodeURIComponent(r.projectId)}/files?${q}`);
@@ -110,8 +110,13 @@ class Catalog {
     const v=source==='modrinth'?this.mrVersion(await this.json('https://api.modrinth.com/v2/version/'+encodeURIComponent(id)),p):this.cfVersion((await this.cf(`/mods/${encodeURIComponent(projectId)}/files/${encodeURIComponent(id)}`)).data,p);
     if(v.projectId!==p.projectId)throw Error('Файл не принадлежит выбранному проекту');return {project:p,version:v};
   }
+  async latest(r,{allowPrerelease=false,channels=['release'],preferStable=true,firstPage=null}={}) {
+    let offset=0,project,stable=null,fallback=null,hasVersions=false;const newer=(a,b)=>!b||String(a.date||'').localeCompare(String(b.date||''))>0;
+    for(let page=0;page<200;page++){const list=page===0&&firstPage?firstPage:await this.versions({...r,offset,all:true});project=list.project;hasVersions||=list.versions.length>0;for(const v of (list.allVersions||list.versions)){if(v.release==='release'&&newer(v,stable))stable=v;if(channels.includes(v.release)&&newer(v,fallback))fallback=v;}if(list.allVersions||!list.hasMore)break;if(!Number.isFinite(list.nextOffset)||list.nextOffset<=offset)throw Error('Неверная следующая страница версий');offset=list.nextOffset;}
+    return {project,hasVersions,version:preferStable?stable||(allowPrerelease?fallback:null):fallback};
+  }
   async plan(r) {
-    validateRequest(r);if(!r.versionId){let offset=0,chosen;for(let page=0;page<200;page++){const list=await this.versions({...r,offset});chosen=list.versions.filter(v=>v.release==='release').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];if(chosen||!list.hasMore)break;offset=list.nextOffset;}if(!chosen)throw Error('Совместимого стабильного релиза нет. Версию можно выбрать вручную из списка модов.');r={...r,versionId:chosen.id};}const root=await this.version(r.source,r.projectId,r.versionId,r.type);
+    validateRequest(r);if(!r.versionId){const choice=await this.latest(r);if(!choice.version)return {requiresVersionSelection:true,reason:choice.hasVersions?'prerelease-only':'incompatible',project:choice.project};r={...r,versionId:choice.version.id};}const root=await this.version(r.source,r.projectId,r.versionId,r.type);
     const pack=root.project.type==='modpack'?null:await this.packs.get(r.instanceId);
     let targetFolder=null;if(root.project.type==='datapack'){if(!root.version.loaders.includes('datapack'))throw Error('Это версия мода, а не датапака');const world=String(r.world||'');if(!world||world.includes('/')||world.includes('\\'))throw Error('Выбери существующий мир для датапака');targetFolder='saves/'+world+'/datapacks';await noLinks(this.packs.dir(pack.id),safePath(this.packs.dir(pack.id),'saves/'+world));await fs.access(safePath(this.packs.dir(pack.id),'saves/'+world+'/level.dat'));}const entries=new Map(),active=new Set(),warnings=[];
     const resolve=async node=>{
@@ -129,12 +134,13 @@ class Catalog {
         let projectId=p.source==='modrinth'?dep.project_id:String(dep.modId),versionId=p.source==='modrinth'?dep.version_id:null;
         if(!projectId&&versionId){const raw=await this.json('https://api.modrinth.com/v2/version/'+encodeURIComponent(versionId));projectId=raw.project_id;}
         if(!projectId)throw Error('Не найдена обязательная зависимость: '+p.title);
-        if(!versionId){const list=await this.versions({source:p.source,projectId,instanceId:pack.id,type:root.project.type==='datapack'?'datapack':undefined});versionId=(list.versions.find(v=>v.release==='release')||list.versions[0])?.id;}
-        if(!versionId)throw Error('Нет совместимой зависимости для '+p.title);await resolve(await this.version(p.source,projectId,versionId,root.project.type==='datapack'?'datapack':undefined));
+        const pinned=!!versionId;if(!versionId){const choice=await this.latest({source:p.source,projectId,instanceId:pack.id,type:root.project.type==='datapack'?'datapack':undefined},{allowPrerelease:true,channels:['release','beta','alpha']});versionId=choice.version?.id;}
+        if(!versionId)throw Error('Нет совместимой зависимости для '+p.title);const dependency=await this.version(p.source,projectId,versionId,root.project.type==='datapack'?'datapack':undefined);if(pinned)warnings.push('Версия зависимости '+dependency.project.title+' · '+dependency.version.name+' задана автором '+p.title);await resolve(dependency);
       }}
       active.delete(key);entries.set(key,{project:p,version:v,file});
     };
     await resolve(root);
+    if([...entries.values()].some(e=>['beta','alpha'].includes(e.version.release)))warnings.push('В установке есть предварительные версии (Beta/Alpha). Они могут содержать ошибки. Проверь выбранные версии перед установкой.');
     if(root.project.type==='datapack')warnings.push('Датапак будет установлен в выбранный мир. Перед установкой закрой Minecraft. Для нового мира добавь его при создании мира или создай мир и установи датапак после этого.');if(root.project.type==='shader')warnings.push('Шейдер будет установлен в shaderpacks. Для его использования нужен Iris или OptiFine; включите шейдер в настройках игры.');
     if(root.project.type==='resourcepack')warnings.push('После установки включите ресурспак в настройках Minecraft.');
     if([...entries.values()].some(e=>e.version.side==='server'))warnings.push('В списке есть серверный мод. Он будет сохранён в сборке, но может быть не нужен клиенту.');
@@ -144,7 +150,7 @@ class Catalog {
   }
   async apply(id) {
     const plan=this.plans.get(id);if(!plan||plan.expires<Date.now())throw Error('План установки устарел. Выберите версию заново.');this.plans.delete(id);
-    if(!plan.pack){const e=plan.entries.at(-1),file=path.join(this.packs.root,'cache',crypto.randomUUID()+'.zip');try{await this.download(e.file.url,file,e.file.hashes.sha512||e.file.hashes.sha1,e.file.hashes.sha512?'sha512':'sha1');const p=await this.packs.import(file,await this.getKey());p.source=e.project.source;p.projectId=e.project.projectId;await this.packs.save(p);return p;}finally{await fs.rm(file,{force:true});}}
+    if(!plan.pack){const e=plan.entries.at(-1),file=path.join(this.packs.root,'cache',crypto.randomUUID()+'.zip');try{await this.download(e.file.url,file,e.file.hashes.sha512||e.file.hashes.sha1,e.file.hashes.sha512?'sha512':'sha1');const p=await this.packs.import(file,this.cfProxy?this:await this.getKey());p.source=e.project.source;p.projectId=e.project.projectId;await this.packs.save(p);return p;}finally{await fs.rm(file,{force:true});}}
     const pack=await this.packs.get(plan.pack.id);if(pack.version!==plan.pack.version||pack.loader!==plan.pack.loader)throw Error('Сборка изменилась. Выберите версию заново.');
     const stage=path.join(this.packs.root,'staging',crypto.randomUUID()),dir=this.packs.dir(pack.id),meta=await readJson(metadataFile(this.packs,pack.id),{});
     const writes=[],removals=new Set(),names=new Set();let done=0;for(const e of plan.entries){const name=(e.project.type==='datapack'?plan.targetFolder:FOLDERS[e.project.type])+'/'+e.file.filename;if(names.has(name.toLowerCase()))throw Error('Зависимости используют одинаковое имя файла');names.add(name.toLowerCase());}
