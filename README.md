@@ -42,6 +42,7 @@
 
 ```text
 npm ci
+npm run runtime:install
 npm run content:build
 npm test
 npm start

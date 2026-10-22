@@ -18,7 +18,8 @@
     "predist": "npm run content:build",
     "predist:linux": "npm run content:build",
     "release:key": "node scripts/release-key.cjs",
-    "release:sign": "node scripts/sign-update.cjs"
+    "release:sign": "node scripts/sign-update.cjs",
+    "runtime:install": "node node_modules/electron/install.js"
   },
   "dependencies": {
     "adm-zip": "^0.6.1",
